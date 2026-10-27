@@ -14,7 +14,7 @@ def checkM(M, p):
 def project(M, a, b, c):
     a, b, c = (np.asarray(pt, dtype=float) for pt in (a, b, c))
     DistAB = np.linalg.norm(b - a)
-    DistBC = np.linalg.norm(c - a)
+    DistBC = np.linalg.norm(c - b)
     Vab = (b - a) / DistAB
     Vac = (c - a) / DistAB
 
@@ -28,17 +28,34 @@ def project(M, a, b, c):
     for y in range(height):
         a1 = a1 + Vab
         a2 = a2 + Vac
-        p = a1.copy()
+        #p = a1.copy()
 
         Dist12 = np.linalg.norm(a2 - a1)
         dp = (a2 - a1) / Dist12 if Dist12 > 0 else np.zeros(3)
 
-        for x1 in range(int(np.floor(Dist12)) + 1):
-            v = checkM(M, p)
-            x = int(round(DistBC / 2 - Dist12 / 2 + x1))
-            if 0 <= x < width:
-                E[x, y] = v
-            p = p + dp
+        x1 = np.arange(int(np.floor(Dist12)) + 1)
+
+        points = a1 + x1[:, None] * dp
+
+        idx = np.rint(points).astype(int)
+        ix, iy, iz = idx[:, 0], idx[:, 1], idx[:, 2]
+
+        x = np.rint(DistBC / 2 - Dist12 / 2 + x1).astype(int)
+
+        mask = ((ix >= 0) & (ix < M.shape[0])&
+                (iy >= 0) & (iy < M.shape[1])&
+                (iz >= 0) & (iz < M.shape[2])&
+                (x >= 0) & (x < width))
+        E[x[mask], y] = M[ix[mask], iy[mask], iz[mask]]
+
+        # for x1 in range(int(np.floor(Dist12)) + 1):
+        #     v = checkM(M, p)
+        #     x = int(round(DistBC / 2 - Dist12 / 2 + x1))
+        #     if 0 <= x < width:
+        #         E[x, y] = v
+        #     p = p + dp
+
+        
     return E
 
 
