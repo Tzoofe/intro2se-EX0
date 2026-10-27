@@ -4,13 +4,6 @@ import matplotlib.pyplot as plt
 import time
 
 
-def checkM(M, p):
-    """returns M at point p (nearest voxel)"""
-    ix, iy, iz = np.rint(p).astype(int)
-    if 0 <= ix < M.shape[0] and 0 <= iy < M.shape[1] and 0 <= iz < M.shape[2]:
-        return M[ix, iy, iz]
-    return 0
-
 def project(M, a, b, c):
     a, b, c = (np.asarray(pt, dtype=float) for pt in (a, b, c))
     DistAB = np.linalg.norm(b - a)
@@ -28,7 +21,6 @@ def project(M, a, b, c):
     for y in range(height):
         a1 = a1 + Vab
         a2 = a2 + Vac
-        #p = a1.copy()
 
         Dist12 = np.linalg.norm(a2 - a1)
         dp = (a2 - a1) / Dist12 if Dist12 > 0 else np.zeros(3)
@@ -47,32 +39,28 @@ def project(M, a, b, c):
                 (iz >= 0) & (iz < M.shape[2])&
                 (x >= 0) & (x < width))
         E[x[mask], y] = M[ix[mask], iy[mask], iz[mask]]
-
-        # for x1 in range(int(np.floor(Dist12)) + 1):
-        #     v = checkM(M, p)
-        #     x = int(round(DistBC / 2 - Dist12 / 2 + x1))
-        #     if 0 <= x < width:
-        #         E[x, y] = v
-        #     p = p + dp
-
         
     return E
 
 
 if __name__ == "__main__":
     M, header = nrrd.read("MRHead_1.nrrd")
-
+    # M = np.random.randint(0, 256, size = (500, 500, 500), dtype=np.uint8)
     a = (128, 20, 100)
     b = (20, 230, 100)
     c = (236, 230, 100)
     
-    start = time.perf_counter()
-    E = project(M, a, b, c)
-    end = time.perf_counter()
 
-    elapsed = end - start 
+    runs = 50
+    start = time.perf_counter()
+    for _ in range(runs):
+        E = project(M, a, b, c)
+    end = time.perf_counter()
+    avg = (end - start) / runs
+    elapsed = end - start
+    print(f"avg time: {avg:.4f} seconds")
     print(f"time elapsed: {elapsed:.3f} seconds")
-    print(f"fps: {1 / elapsed:.1f}")
+    print(f"fps: {1 / avg:.1f}")
 
 
     print(E.shape)
