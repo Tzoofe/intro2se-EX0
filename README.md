@@ -7,7 +7,7 @@ Compute 2D Cross-sections as a 3D Medical volume along arbitrary planes, and ren
 Medical scanners such as MRIs and CTs produce a 3D volume: as stack of 2d images that together form a a 3D Matrix of intensity values. A screen can only show 2D images, so the volume is viewed as slices. Third party programs such as 3DSlicer Typically show Three-axis aligned slices but anatomical stactures are rarely aligned with the scanner's axes. To see such stractures properly the volume must be sliced along **arbitrary (oblique) plane**.
 This project takes a 3D Volume and a plane defined by 3 or 4 points and computes the 2D image of the volume's cross-section on that plane. Given a list of Planes, it produces a video with one frame per plane.
 
-The Algorithm must be fast enough for interactive use: atleast 30FPS (targer is 100+ fps) for a 500*5008*500 volume
+The Algorithm must be fast enough for interactive use: atleast 30FPS (target is 100+ fps) for a 500*500*500 volume
 
 ## Scope
 
