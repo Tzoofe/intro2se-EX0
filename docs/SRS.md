@@ -34,8 +34,8 @@ Frame - a Single projection, written as one frame of the output video.
 - FR11: For N = 3, the points are interpreted as (a, b, c), where a is the apex.
 - FR12: For N = 4, the points are interpreted as (a1, b, a2, c): two segments a1→b and a2→c.
 - FR13: The planes shall be processed in the order they appear in the file.
-- FR14: A row with an invalid N, a missing value or a non-numeric value shall be reported with its row number and skipped.
-- FR15: If the file is missing or contains no valid rows, the system shall print a clear error message and exit with a non-zero exit code.
+- FR14: A row with an invalid N, a missing value or a non-numeric value shall be reported with its row number and the reason, and shall produce an error frame (FR41).
+- FR15: If the file is missing or contains no data rows (only a header, or empty), the system shall print a clear error message and exit with a non-zero exit code.
 
 ### 2.3 Plane validation
 
@@ -45,7 +45,7 @@ Frame - a Single projection, written as one frame of the output video.
 - FR19: A trapezoid plane is valid only if dist(a1,a2) <= dist(b,c) + EPS.
 - FR20: A trapezoid plane is valid only if all four points lie on the same plane: the distance of a2 from the plane through a1, b, c is less than EPS.
 - FR21: A trapezoid plane is valid only if it is non-degenerate: dist(a1,b) > EPS and a1, b, c are not collinear.
-- FR22: A plane that fails validation shall be reported with its row number and the failed condition, and skipped.
+- FR22: A plane that fails validation shall raise an exception stating the failed condition. The demo shall catch it, report the row number and the failed condition, and produce an error frame (FR41).
 - FR23: A plane that lies partially or fully outside the volume is valid; it is not rejected by validation.
 
 ### 2.4 Projection
@@ -64,12 +64,13 @@ Frame - a Single projection, written as one frame of the output video.
 ### 2.5 Output Video
 
 - FR34: The system shall write an MP4 video (H.264 codec) to the output path given on the command line.
-- FR35: The video shall contain one frame per valid plane, in the order of FR13.
+- FR35: The video shall contain exactly one frame per CSV data row, in the order of FR13: the projection for a valid plane, or an error frame (FR41) for an invalid row or plane.
 - FR36: Each frame shall be converted to 8-bit grayscale using a global linear normalization over the whole volume: v8 = round(255 · (v - Mmin) / (Mmax - Mmin)), where Mmin and Mmax are the minimum and maximum values of M. If Mmax = Mmin, all values map to 0.
 - FR37: Background pixels (set to 0 by FR30 and FR31) shall be black in the output frame, regardless of FR36.
-- FR38: All frames shall have the same size: the maximum width and maximum height of all projections, rounded up to an even number. Each projection shall be placed centered horizontally and aligned to the top, with the remaining area filled with black.
+- FR38: All frames shall have the same size: the maximum width and maximum height of all projections, rounded up to an even number. Each projection shall be placed centered horizontally and aligned to the top, with the remaining area filled with black. If there are no valid planes, the frame size shall be 256×256.
 - FR39: The video frame rate shall be 10 frames per second by default.
 - FR40: If the output file cannot be written, the system shall print a clear error message and exit with a non-zero exit code.
+- FR41: An error frame shall be a black frame of the uniform size (FR38) with a white X across it and the text "Invalid plane: row N", so the failed row is visible in the video.
 
 ## 3. Non-Functional Requirements
 
@@ -82,7 +83,7 @@ Frame - a Single projection, written as one frame of the output video.
 
 ### 3.2 Robustness
 
-- NFR5: The system shall not terminate with an unhandled exception for any input; all errors are reported as defined in FR7, FR14, FR15, FR22 and FR40.
+- NFR5: The system shall not terminate with an unhandled exception for any input; all errors are reported as defined in FR7, FR14, FR15, FR22, FR40 and FR41.
 - NFR6: The system shall be deterministic: the same input files always produce the same output video.
 
 ### 3.3 Portability
@@ -111,9 +112,10 @@ Each decision resolves an ambiguity in the assignment or a problem in the given 
 - Rationale: The assignment describes the trapezoid as two vectors a'→b and a''→c, and row 4 of the sample CSV is a valid trapezoid only in this order.
 - Note: This differs from the order (a1, a2, b, c) given in the Q&A.
 
-### DD3: Invalid rows and planes are skipped (FR14, FR22)
-- Decision: An invalid row is reported with its row number and the reason, and skipped.
-- Alternatives: Stop the program, or output a black frame. Rejected: one bad row should not prevent the video from being created, and a black frame would hide the error.
+### DD3: Invalid rows and planes produce an error frame (FR14, FR22, FR35, FR41)
+- Decision: Plane validation raises an exception. The demo catches it, reports the row number and the reason, and writes an error frame in place of the projection; all other rows are processed normally.
+- Rationale: Required by the lecturer's Q&A. Keeping one frame per row preserves the mapping between CSV row i and video frame i, and makes the error visible in the output instead of hiding it.
+- Alternatives: Stop the program (one bad row should not prevent the video), or skip the row silently (breaks the row↔frame mapping and hides the error). Both rejected.
 
 ### DD4: Plane validation (FR16 to FR21)
 - Decision: All geometric comparisons use the tolerance EPS. "Same plane" is checked as the distance of a2 from the plane through a1, b, c. Degenerate planes (collinear or coinciding points) are rejected. Trapezoid bases are not required to be parallel.
