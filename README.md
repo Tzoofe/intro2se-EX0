@@ -1,4 +1,4 @@
-# Ex1 - Plane Projection of a 3D Volume
+# Plane Projection of a 3D Volume
 
 [![tests](https://github.com/Tzoofe/intro2se-EX0/actions/workflows/tests.yml/badge.svg)](https://github.com/Tzoofe/intro2se-EX0/actions/workflows/tests.yml)
 
@@ -14,7 +14,7 @@ A plane rotating 180° through each volume, one frame per CSV row ([experiments/
 
 Output videos (MP4):
 
-- **Demo on the lecturer's sample CSV:** [MRHead_1_sample.mp4](experiments/output/MRHead_1_sample.mp4): `python Ex0.py data/MRHead_1.nrrd Ex0.csv out.mp4`. 4 frames; row 3 is invalid and becomes an error frame.
+- **Sample plane list:** [MRHead_1_sample.mp4](experiments/output/MRHead_1_sample.mp4): `python Ex0.py data/MRHead_1.nrrd Ex0.csv out.mp4`. 4 frames; row 3 is invalid and becomes an error frame.
 - **Rotating plane:** [MRHead](experiments/output/MRHead_1_rotation.mp4) · [onion](experiments/output/onion_rotation.mp4) · [biscuit cake](experiments/output/biscuit_cake_rotation.mp4) · [Swiss roll](experiments/output/swiss_roll_rotation.mp4)
 
 Speed and the full discussion: [docs/EXPERIMENT.md](docs/EXPERIMENT.md).
@@ -95,8 +95,10 @@ Requires Python 3.12+. Dependencies: NumPy, [pynrrd](https://github.com/mhe/pynr
 ## How to test
 
 ```bash
-pytest          # all tests
-pytest -s       # also prints the measured fps of the performance test
+pytest                          # all tests
+pytest -m "not performance"     # skip the speed test
+pytest -m performance -s        # only the speed test, printing the measured fps
+pytest --cov                    # with line and branch coverage (currently 100%)
 ```
 
 The tests use synthetic volumes, so they do not need any NRRD file. They also run on every push on Linux, Windows and macOS with GitHub Actions (badge above). See [docs/TESTING.md](docs/TESTING.md).
@@ -108,16 +110,16 @@ NRRD files are not committed (`.gitignore`). To run the demo, place them in `dat
 | File | Content | Shape | Voxel type | Encoding | Source |
 |---|---|---|---|---|---|
 | `MRHead_1.nrrd` | MRI of a head | 256×256×130 | int16 (signed) | gzip, little-endian | 3D Slicer sample data (Sample Data module) |
-| `onion.nrrd` | onion: concentric layers | 256×256×130 | uint8 | gzip | Open dataset shared by classmates in the course |
-| `biscuit_cake.nrrd` | layered biscuit cake | 256×256×130 | uint16 | gzip, little-endian | Open dataset shared by classmates in the course |
-| `swiss_roll.nrrd` | Swiss roll: spiral layers | 256×256×130 | uint32 | gzip, little-endian | Open dataset shared by classmates in the course |
+| `onion.nrrd` | onion: concentric layers | 256×256×130 | uint8 | gzip | Public dataset (shared drive) |
+| `biscuit_cake.nrrd` | layered biscuit cake | 256×256×130 | uint16 | gzip, little-endian | Public dataset (shared drive) |
+| `swiss_roll.nrrd` | Swiss roll: spiral layers | 256×256×130 | uint32 | gzip, little-endian | Public dataset (shared drive) |
 
 Together they cover 8, 16 and 32-bit voxels, signed and unsigned. The three food volumes have layered, curved structures, which make it easy to see whether an oblique slice is correct.
 
 Other data:
 
 - **Synthetic volumes**: random and known-pattern volumes created by the tests, including 500×500×500 `uint8` for the performance requirement.
-- **Ex0.csv**: the lecturer's sample planes. Row 3 is intentionally invalid (not isosceles). The planes are sized for a ~500³ volume, so on MRHead most of each frame is outside the volume.
+- **Ex0.csv**: the sample plane list. Row 3 is intentionally invalid (not isosceles). The planes are sized for a ~500³ volume, so on MRHead most of each frame is outside the volume.
 
 ## Project Structure
 
@@ -169,6 +171,6 @@ Full results, videos and discussion: [docs/EXPERIMENT.md](docs/EXPERIMENT.md).
 
 - [docs/SRS.md](docs/SRS.md): Software Requirements Specification (functional and non-functional requirements, design decisions).
 - [docs/DESIGN.md](docs/DESIGN.md): software design: classes and responsibilities, design patterns, data flow, error handling.
-- [docs/ALGORITHM.md](docs/ALGORITHM.md): detailed algorithm: the given algorithm, its problems and fixes, vectorization, complexity.
+- [docs/ALGORITHM.md](docs/ALGORITHM.md): detailed algorithm: the original algorithm, its problems and fixes, vectorization, complexity.
 - [docs/TESTING.md](docs/TESTING.md): testing strategy, test levels and requirements coverage.
 - [docs/EXPERIMENT.md](docs/EXPERIMENT.md): experiment, speed measurements and output videos.

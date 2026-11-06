@@ -72,6 +72,7 @@ def test_sampler_is_injected():
     assert set(E[mask].tolist()) == {7}
 
 
+@pytest.mark.performance
 def test_performance_500_cubed(projector):
     """NFR1: at least 30 fps on a 500^3 volume (average of 50 runs, projection only)."""
     data = rng.integers(0, 256, (500, 500, 500), dtype=np.uint8)

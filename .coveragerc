@@ -1,0 +1,11 @@
+[run]
+branch = True
+source =
+    projection
+    Ex0
+
+[report]
+show_missing = True
+# the small demos at the bottom of each module are run by hand, not by the tests
+exclude_also =
+    if __name__ == .__main__.:

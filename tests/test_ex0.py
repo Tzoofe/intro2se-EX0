@@ -62,3 +62,27 @@ def test_missing_inputs(volume_path, tmp_path):
 
 def test_unwritable_output(volume_path, tmp_path):
     assert main(["Ex0.py", volume_path, "Ex0.csv", str(tmp_path / "no_dir" / "out.mp4")]) == 1
+
+
+def test_command_line_as_a_process(volume_path, tmp_path):
+    """NFR9: the exact command of the assignment, run as a separate process."""
+    import subprocess
+    import sys
+
+    out = tmp_path / "out.mp4"
+    result = subprocess.run([sys.executable, "Ex0.py", volume_path, "Ex0.csv", str(out)],
+                            capture_output=True, text=True)
+    assert result.returncode == 0
+    assert out.exists()
+    assert subprocess.run([sys.executable, "Ex0.py"], capture_output=True).returncode == 2
+
+
+def test_same_input_same_video(volume_path, tmp_path):
+    """NFR6: two runs on the same input give the same frames."""
+    first, second = str(tmp_path / "1.mp4"), str(tmp_path / "2.mp4")
+    assert main(["Ex0.py", volume_path, "Ex0.csv", first]) == 0
+    assert main(["Ex0.py", volume_path, "Ex0.csv", second]) == 0
+    frames_1 = [frame for frame in imageio.get_reader(first)]
+    frames_2 = [frame for frame in imageio.get_reader(second)]
+    assert len(frames_1) == len(frames_2)
+    assert all(np.array_equal(f1, f2) for f1, f2 in zip(frames_1, frames_2))

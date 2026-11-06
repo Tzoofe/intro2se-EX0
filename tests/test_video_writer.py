@@ -18,6 +18,9 @@ def test_even_size_and_frame_count(tmp_path):
     frames = read_frames(path)
     assert len(frames) == 3
     assert frames[0].shape == (102, 52)
+    meta = imageio.get_reader(path).get_meta_data()
+    assert meta["codec"] == "h264"   # FR34
+    assert meta["fps"] == 10         # FR39
 
 
 def test_padding_centered_top_aligned(tmp_path):
@@ -43,4 +46,15 @@ def test_error_frame_not_black(tmp_path):
 def test_unwritable_path(tmp_path):
     with pytest.raises(OSError, match="cannot write video"):
         with VideoWriter(str(tmp_path / "no_dir" / "out.mp4"), 10, 10) as writer:
+            writer.write_frame(np.zeros((10, 10), dtype=np.uint8))
+
+
+def test_write_failure_mid_video(tmp_path):
+    """FR40: an error while writing a frame (e.g. disk full) is reported as OSError."""
+    def fail(frame):
+        raise IOError("disk full")
+
+    with pytest.raises(OSError, match="cannot write video .*disk full"):
+        with VideoWriter(str(tmp_path / "out.mp4"), 10, 10) as writer:
+            writer._writer.append_data = fail
             writer.write_frame(np.zeros((10, 10), dtype=np.uint8))

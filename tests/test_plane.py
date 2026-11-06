@@ -51,7 +51,7 @@ def test_sample_csv_rows():
     Plane.from_trapezoid((200, 50, 0), (200, 0, 500), (200, 350, 0), (200, 400, 500))
 
 
-def test_row4_invalid_in_qa_order():
+def test_row4_invalid_in_alternative_order():
     """Row 4 read as (a1, a2, b, c) is not isosceles, which supports DD2."""
     with pytest.raises(InvalidPlaneError):
         Plane.from_trapezoid((200, 50, 0), (200, 350, 0), (200, 0, 500), (200, 400, 500))

@@ -1,6 +1,11 @@
 # Algorithm
 
-This document describes the projection algorithm in detail: the algorithm given in the assignment, the problems found in it, the corrected algorithm that is implemented, and how it was made fast. Requirement and design-decision numbers (FR, NFR, DD) refer to [SRS.md](SRS.md).
+| Version | Date | Author | Changes |
+|---|---|---|---|
+| 1.0 | 2026-11-06 | Tzoofe | First version: original algorithm, fixes, corrected algorithm, vectorization, complexity. |
+| 1.1 | 2026-11-06 | Tzoofe | Plane size limit, trilinear sampler, worked example with figure, numeric assumptions and invariants. |
+
+This document describes the projection algorithm in detail: the original algorithm this project started from, the problems found in it, the corrected algorithm that is implemented, and how it was made fast. Requirement and design-decision numbers (FR, NFR, DD) refer to [SRS.md](SRS.md).
 
 ## 1. Input
 
@@ -11,7 +16,7 @@ This document describes the projection algorithm in detail: the algorithm given 
 
 All points are real-valued and may lie outside M.
 
-## 2. The given algorithm
+## 2. The original algorithm
 
 ```
 Dab = dist(a, b) = dist(a, c);  Dbc = dist(b, c)
@@ -34,7 +39,7 @@ return E
 
 The idea: walk two points down the two legs of the triangle, one unit step per output row. Each row is the segment between them, sampled at unit steps and centered horizontally in the output image.
 
-## 3. Problems in the given algorithm, and fixes
+## 3. Problems in the original algorithm, and fixes
 
 | # | Problem | Fix | SRS |
 |---|---|---|---|
@@ -86,6 +91,47 @@ return E, mask
 
 Row 0 lies on the segment `a1→a2` (the apex, for a triangle). Row y lies at distance y from it along the legs. Each row is centered: its middle sample falls at column `Dbc/2`.
 
+### Worked example
+
+A triangle in the slice `z = 0` of a 5×7×1 volume whose voxel values are `M[x][y][0] = 10·x + y`:
+
+```
+a = (0, 3, 0)   (apex)      b = (4, 0, 0)      c = (4, 6, 0)
+Dab = dist(a, b) = 5        Dbc = dist(b, c) = 6
+v1 = (b - a) / 5 = (0.8, -0.6, 0)      v2 = (c - a) / 5 = (0.8, 0.6, 0)
+H = floor(5) + 1 = 6        W = ceil(6) + 1 = 7
+```
+
+![Worked example: the triangle in the volume with its sample points, and the output image](media/algorithm_example.svg)
+
+| Row y | p1(y) | p2(y) | d12 | Samples | Columns x | Values |
+|---|---|---|---|---|---|---|
+| 0 | (0, 3) | (0, 3) | 0 | 1 (d12 < EPS) | 3 | 3 |
+| 1 | (0.8, 2.4) | (0.8, 3.6) | 1.2 | 2 | 2, 3 | 12, 13 |
+| 2 | (1.6, 1.8) | (1.6, 4.2) | 2.4 | 3 | 2, 3, 4 | 22, 23, 24 |
+| 3 | (2.4, 1.2) | (2.4, 4.8) | 3.6 | 4 | 1, 2, 3, 4 | 21, 22, 23, 24 |
+| 4 | (3.2, 0.6) | (3.2, 5.4) | 4.8 | 5 | 1 to 5 | 31 to 35 |
+| 5 | (4, 0) | (4, 6) | 6 | 7 | 0 to 6 | 40 to 46 |
+
+(The z coordinate is 0 everywhere and is left out.)
+
+Row 1 in detail: the samples are at `p1 + 0·dp = (0.8, 2.4)` and `p1 + 1·dp = (0.8, 3.4)`. Their nearest voxels are `(1, 2)` and `(1, 3)`, with values 12 and 13. Their columns are `round(6/2 - 1.2/2 + 0) = round(2.4) = 2` and `round(3.4) = 3`.
+
+The example also shows one property of the original algorithm: samples are one unit apart starting at `p1`, so when `d12` is not a whole number, the last part of the row (here the last 0.2 voxels of row 1) is not sampled. The row is centered by its full length `d12`, so the sampled pixels can sit up to half a pixel to the left of the center. This is accepted as part of FR28 and FR29.
+
+The properties shown here are checked by tests (see [TESTING.md](TESTING.md)): the apex row has one pixel in the center column, every row is centered, and an axis-aligned plane reproduces the volume's values exactly.
+
+### Numeric assumptions and invariants
+
+- **Precision.** All geometry uses 64-bit floats (about 15 significant digits). Planes are at most 2048 voxels long (FR42), so rounding errors in point positions are around 10⁻¹², far below both EPS (0.001) and the half-voxel distance at which nearest-neighbor rounding changes its answer.
+- **EPS = 0.001 voxels** is large enough to accept CSV values written with a few decimal places, and small enough to reject planes that are visibly not isosceles or not flat.
+- **Invariants** after a successful `project(data, plane)`:
+    - `plane` has passed validation, so `Dab > EPS` and no division by zero can happen.
+    - `E` and `mask` have shape `(H, W)` with `H, W >= 1`, and `E` has the same type as M (FR33).
+    - Every row has at least one sample (the apex row has exactly one for a triangle).
+    - Every written column is in `[0, W)`. This holds by construction because `d12 <= Dbc + EPS`; an explicit filter enforces it anyway, so rounding can never write outside `E`.
+    - `mask[y][x]` is True only where a sample was read from inside M; everywhere else `E[y][x] = 0`.
+
 ### Plane validation (before projection)
 
 A plane is projected only after it passes validation (FR16 to FR21, DD4), with `EPS = 0.001`:
@@ -116,7 +162,7 @@ Python loops are slow, so the work is expressed as whole-array NumPy operations.
 | `RowLoopProjector` | rows only; each row is one NumPy operation | 100 fps |
 | `Projector` | none | 167 fps |
 
-**Row loop.** For one row, all sample points are `p1 + x1[:, None] * dp` for `x1 = 0 .. n-1`: an n×3 array built in one operation. One call to the sampler reads all of them, and one assignment writes the whole row of E.
+**Row loop.** For one row, all sample points are `p1 + x1[:, None] * dp` for `x1 = 0 .. n-1`: an n×3 array built in one operation. One call to the sampler reads all of them, and one indexed write fills the whole row of E.
 
 **No loop.** Rows have different lengths (a triangle's rows grow from 1 to W samples), so the samples do not form a rectangular grid. They are flattened into one list instead:
 
