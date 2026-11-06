@@ -43,5 +43,5 @@ class NrrdReader:
 
 
 if __name__ == "__main__":
-    volume = NrrdReader.read("MRHead_1.nrrd")
+    volume = NrrdReader.read("data/MRHead_1.nrrd")
     print(volume.shape, volume.data.dtype, volume.min_value, volume.max_value)

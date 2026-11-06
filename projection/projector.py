@@ -20,7 +20,51 @@ class Projector:
 
     def project(self, data, plane):
         """Returns (E, mask): E[y, x] is the image with data's dtype, and mask[y, x]
-        is True where the pixel was sampled from inside the volume (used for FR37)."""
+        is True where the pixel was sampled from inside the volume (used for FR37).
+        All rows are computed together with NumPy, with no Python loop (see RowLoopProjector)."""
+        a1, b, a2, c = plane.a1, plane.b, plane.a2, plane.c
+        dist_ab = np.linalg.norm(b - a1)
+        dist_bc = np.linalg.norm(c - b)
+        v1 = (b - a1) / dist_ab
+        v2 = (c - a2) / dist_ab
+        height, width = self.output_size(plane)
+
+        # Row endpoints p1(y), p2(y) and their distance d12(y), for all rows at once.
+        y = np.arange(height)
+        p1 = a1 + y[:, None] * v1
+        p2 = a2 + y[:, None] * v2
+        d12 = np.linalg.norm(p2 - p1, axis=1)
+
+        # Unit step along each row; rows shorter than EPS get one sample at p1 (DD7).
+        wide = d12 >= EPS
+        dp = np.zeros((height, 3))
+        dp[wide] = (p2 - p1)[wide] / d12[wide, None]
+        counts = np.where(wide, np.floor(d12).astype(np.intp) + 1, 1)
+
+        # Flatten all samples of all rows into one list: rows[i] is the row of sample i,
+        # and x1[i] is its index within that row (0, 1, ..., counts[row] - 1).
+        rows = np.repeat(y, counts)
+        row_starts = np.cumsum(counts) - counts
+        x1 = np.arange(rows.size) - np.repeat(row_starts, counts)
+
+        points = p1[rows] + x1[:, None] * dp[rows]
+        values, inside = self.sampler.sample(data, points)
+
+        x = np.rint(dist_bc / 2 - d12[rows] / 2 + x1).astype(np.intp)
+        in_image = (x >= 0) & (x < width)
+        E = np.zeros((height, width), dtype=data.dtype)
+        mask = np.zeros((height, width), dtype=bool)
+        E[rows[in_image], x[in_image]] = values[in_image]
+        mask[rows[in_image], x[in_image]] = inside[in_image]
+        return E, mask
+
+
+class RowLoopProjector(Projector):
+    """Same result as Projector, one row per Python loop iteration. Simpler to
+    follow and close to the original algorithm; kept as a reference for tests
+    and for the performance experiment."""
+
+    def project(self, data, plane):
         a1, b, a2, c = plane.a1, plane.b, plane.a2, plane.c
         dist_ab = np.linalg.norm(b - a1)
         dist_bc = np.linalg.norm(c - b)
@@ -61,7 +105,7 @@ if __name__ == "__main__":
     from projection.sampler import NearestSampler
     from projection.volume import NrrdReader
 
-    volume = NrrdReader.read("MRHead_1.nrrd")
+    volume = NrrdReader.read("data/MRHead_1.nrrd")
     plane = Plane.from_triangle((128, 20, 65), (20, 230, 65), (236, 230, 65))
     projector = Projector(NearestSampler())
 

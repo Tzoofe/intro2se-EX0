@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from projection.plane import Plane
-from projection.projector import Projector
+from projection.projector import Projector, RowLoopProjector
 from projection.sampler import NearestSampler, Sampler
 
 rng = np.random.default_rng(0)
@@ -84,3 +84,28 @@ def test_performance_500_cubed(projector):
     fps = runs / (time.perf_counter() - start)
     print(f"\n{fps:.0f} fps")
     assert fps >= 30
+
+
+@pytest.mark.parametrize("points", [
+    [(0, 30, 10), (40, 0, 10), (40, 60, 10)],
+    [(10, 10, 10), (40, 50, 10), (10, 50, 40)],
+    [(-20, 35, 40), (80, 0, 40), (80, 70, 40)],
+    [(0, 0, 0), (0.4, 0, 0.3), (0, 0.4, 0.3)],
+])
+def test_matches_row_loop_triangles(points):
+    plane = Plane.from_triangle(*points)
+    E, mask = Projector(NearestSampler()).project(M, plane)
+    E_ref, mask_ref = RowLoopProjector(NearestSampler()).project(M, plane)
+    assert np.array_equal(E, E_ref) and np.array_equal(mask, mask_ref)
+
+
+@pytest.mark.parametrize("points", [
+    [(0, 0, 33), (50, 0, 33), (0, 60, 33), (50, 60, 33)],
+    [(10, 0, 5), (0, 40, 5), (15, 0, 5), (25, 40, 5)],
+    [(0, 10, 0), (50, 0, 70), (0, 50, 0), (50, 60, 70)],
+])
+def test_matches_row_loop_trapezoids(points):
+    plane = Plane.from_trapezoid(*points)
+    E, mask = Projector(NearestSampler()).project(M, plane)
+    E_ref, mask_ref = RowLoopProjector(NearestSampler()).project(M, plane)
+    assert np.array_equal(E, E_ref) and np.array_equal(mask, mask_ref)
