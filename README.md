@@ -52,7 +52,7 @@ python Ex0.py file.nrrd file.csv file.mp4
 
   All frames have the same size (the largest projection, rounded up to even); smaller projections are centered horizontally and aligned to the top.
 
-Exit codes: `0` success, `1` fatal error (missing or invalid NRRD, missing or empty CSV, output not writable), `2` wrong arguments.
+Exit codes: `0` success, `1` fatal error (missing or invalid NRRD, missing, empty or non-text CSV, output not writable), `2` wrong arguments.
 
 ## How to run
 
@@ -64,7 +64,7 @@ pip install -r requirements.txt
 python Ex0.py data/MRHead_1.nrrd Ex0.csv out.mp4
 ```
 
-Requires Python 3.10+. Dependencies: NumPy, [pynrrd](https://github.com/mhe/pynrrd) (NRRD reading), imageio + imageio-ffmpeg (MP4 writing, ffmpeg included), Pillow (error-frame text), pytest (tests).
+Requires Python 3.12+. Dependencies: NumPy, [pynrrd](https://github.com/mhe/pynrrd) (NRRD reading), imageio + imageio-ffmpeg (MP4 writing, ffmpeg included), Pillow (error-frame text), pytest (tests).
 
 ## How to test
 
@@ -140,6 +140,6 @@ Full results, videos and discussion: [docs/EXPERIMENT.md](docs/EXPERIMENT.md).
 ## Documentation
 
 - [docs/SRS.md](docs/SRS.md): Software Requirements Specification (functional and non-functional requirements, design decisions).
-- `docs/ALGORITHM.md`: detailed algorithm *(TBD)*.
-- [docs/TESTING.md](docs/TESTING.md): testing strategy *(TBD)*.
+- [docs/ALGORITHM.md](docs/ALGORITHM.md): detailed algorithm: the given algorithm, its problems and fixes, vectorization, complexity.
+- [docs/TESTING.md](docs/TESTING.md): testing strategy, test levels and requirements coverage.
 - [docs/EXPERIMENT.md](docs/EXPERIMENT.md): experiment, speed measurements and output videos.

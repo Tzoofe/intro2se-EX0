@@ -3,15 +3,15 @@
 ## 1. Introduction
 ### 1.1 Purpose
 
-This document specifies the requirments for a system that computes 2D Projections (cross-sections) of a 3D Volume along arbitrary planes and renders a sequence of such projections as a video
+This document specifies the requirements for a system that computes 2D Projections (cross-sections) of a 3D Volume along arbitrary planes and renders a sequence of such projections as a video
 ### 1.2 Definitions
 
 Volume (M) - a 3D Matrix of size sx * sy * sz, where 1 <= sx, sy, sz < 2^10. Each entry M[x][y][z] is an integer value of 8, 16 or 32 bits.
 Voxel - a Single entry M[x][y][z] of the volume.
-Voxel index coordinates - a 3D Coordinate system where (x, y, z) refers directly to M[x][y][z]. None integers values fall between voxels.
+Voxel index coordinates - a 3D Coordinate system where (x, y, z) refers directly to M[x][y][z]. Non-integer values fall between voxels.
 Plane (p) - a Planar region in voxel index coordinates, defined by 3 points for triangles or 4 points for trapezoids.
-Triangle plane - 3 points (a, b, c) with |dist(a,b) - dist(a, c) < EPS.
-Trapezoid plane - 4 points (a1, a2, b, c) with |dist(a1,b) - dist(a2, c) < EPS and |dist(a1, a2) <= dist(b, c), all on the same plane.
+Triangle plane - 3 points (a, b, c) with |dist(a,b) - dist(a,c)| < EPS.
+Trapezoid plane - 4 points (a1, b, a2, c) with |dist(a1,b) - dist(a2,c)| < EPS and dist(a1,a2) <= dist(b,c), all on the same plane.
 Projection (E) - The 2D images produced by sampling M along the plane p.
 EPS - Tolerance for distance comparisons: 0.001.
 Frame - a Single projection, written as one frame of the output video.
@@ -24,18 +24,18 @@ Frame - a Single projection, written as one frame of the output video.
 - FR4: The system shall accept only volumes with `dimension: 3`.
 - FR5: The system shall accept only volumes where each size satisfies 1 <= s < 2^10.
 - FR6: The system shall ignore `space directions` and `space origin` for the projection; all computation is done in voxel index coordinates.
-- FR7: If the file is missing, malformed or violates FR3 to FR5, the system shall print a clear error and exit with a none zero exit code, without crashing.
+- FR7: If the file is missing, malformed or violates FR3 to FR5, the system shall print a clear error and exit with a non-zero exit code, without crashing.
 
 ### 2.2 Input: CSV
 
 - FR8: The system shall read a CSV file whose first row is a header row, which is skipped.
-- FR9: Each following row shall define one plane: the first value is the number of points N (3 or 4), followed by 3·N coordinates `x1, y1, z1, ..., xN, yN, zN`. Empty trailing cells are ignored.
-- FR10; Coordinates may be integers or decimals, and may be negative or outside the volume bounds.
+- FR9: Each following row shall define one plane: the first value is the number of points N (3 or 4), followed by 3·N coordinates `x1, y1, z1, ..., xN, yN, zN`. Empty trailing cells are ignored. Blank lines are skipped and do not produce a frame.
+- FR10: Coordinates may be integers or decimals, and may be negative or outside the volume bounds.
 - FR11: For N = 3, the points are interpreted as (a, b, c), where a is the apex.
 - FR12: For N = 4, the points are interpreted as (a1, b, a2, c): two segments a1→b and a2→c.
 - FR13: The planes shall be processed in the order they appear in the file.
-- FR14: A row with an invalid N, a missing value or a non-numeric value shall be reported with its row number and the reason, and shall produce an error frame (FR41).
-- FR15: If the file is missing or contains no data rows (only a header, or empty), the system shall print a clear error message and exit with a non-zero exit code.
+- FR14: A row with an invalid N, a missing value, a non-numeric or non-finite value (nan, inf), or a wrong number of values for N shall be reported with its row number and the reason, and shall produce an error frame (FR41). Row numbers count data rows from 1.
+- FR15: If the file is missing, is not a text file, or contains no data rows (only a header, or empty), the system shall print a clear error message and exit with a non-zero exit code.
 
 ### 2.3 Plane validation
 
@@ -45,7 +45,7 @@ Frame - a Single projection, written as one frame of the output video.
 - FR19: A trapezoid plane is valid only if dist(a1,a2) <= dist(b,c) + EPS.
 - FR20: A trapezoid plane is valid only if all four points lie on the same plane: the distance of a2 from the plane through a1, b, c is less than EPS.
 - FR21: A trapezoid plane is valid only if it is non-degenerate: dist(a1,b) > EPS and a1, b, c are not collinear.
-- FR22: A plane that fails validation shall raise an exception stating the failed condition. The demo shall catch it, report the row number and the failed condition, and produce an error frame (FR41).
+- FR22: A plane that fails validation shall raise an exception stating the failed condition. The CSV reader catches it and records the row number and the failed condition; the demo reports it and produces an error frame (FR41).
 - FR23: A plane that lies partially or fully outside the volume is valid; it is not rejected by validation.
 
 ### 2.4 Projection
@@ -56,7 +56,7 @@ Frame - a Single projection, written as one frame of the output video.
 - FR27: For each row y = 0 .. H-1, the row endpoints shall be p1(y) = a1 + y·v1 and p2(y) = a2 + y·v2. Row 0 lies on a1→a2 (the apex, for a triangle).
 - FR28: Let d12 = dist(p1(y), p2(y)). If d12 >= EPS, the row shall be sampled at points p = p1(y) + x1·dp for x1 = 0 .. floor(d12), where dp = (p2(y) - p1(y)) / d12. If d12 < EPS, the row shall be sampled only at p1(y).
 - FR29: Each sample shall be written to column x = round(Dbc/2 - d12/2 + x1), so every row is centered horizontally.
-- FR30: Sampling shall use nearest-neighbor: the value of the voxel at round(p). If round(p) is outside the volume, the value is 0.
+- FR30: Sampling shall use nearest-neighbor: the value of the voxel at round(p) (exact halves round to the nearest even integer). If round(p) is outside the volume, the value is 0.
 - FR31: Pixels of E that are not written by FR28 to FR29 (outside the triangle or trapezoid) shall be 0.
 - FR32: E shall be indexed as E[y][x] (row, column), with row 0 at the a1→a2 side.
 - FR33: E shall have the same data type as M. Conversion to 8-bit is done only in the output stage (2.5).
@@ -88,9 +88,9 @@ Frame - a Single projection, written as one frame of the output video.
 
 ### 3.3 Portability
 
-- NFR7: The system shall run on Python 3.10 or newer, on macOS, Linux and Windows.
+- NFR7: The system shall run on Python 3.12 or newer, on macOS, Linux and Windows.
 - NFR8: All third-party dependencies shall be listed in `requirements.txt`.
-- NFR9: The system shall be run with the command `python Ex0.py file.nrrd file.csv file.mp4`.
+- NFR9: The system shall be run with the command `python Ex0.py file.nrrd file.csv file.mp4`. With a wrong number of arguments, the system shall print a usage message and exit with code 2.
 
 ### 3.4 Maintainability
 
