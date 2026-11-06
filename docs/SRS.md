@@ -47,6 +47,7 @@ Frame - a Single projection, written as one frame of the output video.
 - FR21: A trapezoid plane is valid only if it is non-degenerate: dist(a1,b) > EPS and a1, b, c are not collinear.
 - FR22: A plane that fails validation shall raise an exception stating the failed condition. The CSV reader catches it and records the row number and the failed condition; the demo reports it and produces an error frame (FR41).
 - FR23: A plane that lies partially or fully outside the volume is valid; it is not rejected by validation.
+- FR42: A plane whose legs or base are longer than 2048 voxels is invalid (too large), and is handled like any other invalid plane (FR22).
 
 ### 2.4 Projection
 
@@ -70,7 +71,8 @@ Frame - a Single projection, written as one frame of the output video.
 - FR38: All frames shall have the same size: the maximum width and maximum height of all projections, rounded up to an even number. Each projection shall be placed centered horizontally and aligned to the top, with the remaining area filled with black. If there are no valid planes, the frame size shall be 256×256.
 - FR39: The video frame rate shall be 10 frames per second by default.
 - FR40: If the output file cannot be written, the system shall print a clear error message and exit with a non-zero exit code.
-- FR41: An error frame shall be a black frame of the uniform size (FR38) with a white X across it and the text "Invalid plane: row N", so the failed row is visible in the video.
+- FR41: An error frame shall be a black frame of the uniform size (FR38) with a white X across it, the text "Invalid plane: row N" and the reason, so the failed row and its cause are visible in the video.
+- FR43: After a run, the demo shall print the volume's size, type and load time, the average projection time per plane (and fps), and the total time to write the video.
 
 ## 3. Non-Functional Requirements
 
@@ -140,7 +142,7 @@ Each decision resolves an ambiguity in the assignment or a problem in the given 
 ### DD9: Nearest-neighbor sampling (FR30)
 - Decision: The value of the nearest voxel is used.
 - Rationale: Simplest and fastest; matches `M[p]` in the given algorithm.
-- Alternative: Trilinear interpolation, which is smoother but slower. Supported as a future option through NFR12.
+- Alternative: Trilinear interpolation, which is smoother but slower. It is implemented as a second sampler (`TrilinearSampler`) through NFR12 and compared in the experiment: it is about 2.5 times slower, and the images differ by only 2.6 to 4.0 gray levels on average, so nearest-neighbor stays the default.
 
 ### DD10: E is indexed as E[y][x] (FR32)
 - Decision: Row first, then column.
@@ -154,3 +156,8 @@ Each decision resolves an ambiguity in the assignment or a problem in the given 
 - Decision: Each frame is padded with black to the largest projection size, rounded up to even.
 - Alternative: Resizing. Rejected: it changes the scale between frames.
 - Rationale: MP4 requires all frames to have the same size; H.264 requires even dimensions.
+
+### DD13: Maximum plane size (FR42)
+- Decision: A plane with a leg or base longer than 2048 voxels is invalid.
+- Rationale: The coordinates in the CSV are not limited (FR10), so a single row can describe a plane millions of voxels long. Its image would not fit in memory, and the whole run would fail with no video, which contradicts DD3. The longest line inside the largest allowed volume (1023³) is 1023·√3 ≈ 1772 voxels, so a longer plane can only add empty pixels; 2048 leaves a margin.
+- Alternative: Clip the plane to the volume. Rejected: it changes the plane the user asked for, and the image size would no longer follow FR26.

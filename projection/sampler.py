@@ -29,7 +29,37 @@ class NearestSampler(Sampler):
         return values, inside
 
 
+class TrilinearSampler(Sampler):
+    """Trilinear interpolation: a weighted average of the 8 voxels around p, rounded
+    to data's type. Smoother than nearest-neighbor, and slower. A point is inside
+    when 0 <= p <= size - 1 on every axis, so all 8 voxels exist."""
+
+    def sample(self, data, points):
+        upper = np.array(data.shape) - 1
+        inside = np.all((points >= 0) & (points <= upper), axis=1)
+        p = points[inside]
+
+        lo = np.floor(p).astype(np.intp)
+        hi = np.minimum(lo + 1, upper)  # on the last voxel, lo = hi and its weight is 1
+        fx, fy, fz = (p - lo).T
+        x0, y0, z0 = lo.T
+        x1, y1, z1 = hi.T
+
+        def at(x, y, z):
+            return data[x, y, z].astype(np.float64)
+
+        result = ((at(x0, y0, z0) * (1 - fz) + at(x0, y0, z1) * fz) * (1 - fy) +
+                  (at(x0, y1, z0) * (1 - fz) + at(x0, y1, z1) * fz) * fy) * (1 - fx) + \
+                 ((at(x1, y0, z0) * (1 - fz) + at(x1, y0, z1) * fz) * (1 - fy) +
+                  (at(x1, y1, z0) * (1 - fz) + at(x1, y1, z1) * fz) * fy) * fx
+
+        values = np.zeros(len(points), dtype=data.dtype)
+        values[inside] = np.rint(result).astype(data.dtype)
+        return values, inside
+
+
 if __name__ == "__main__":
     data = np.arange(27, dtype=np.uint8).reshape(3, 3, 3)
     points = np.array([[0, 0, 0], [1.4, 1.6, 2.2], [2.6, 0, 0], [-1, 0, 0]])
     print(NearestSampler().sample(data, points))
+    print(TrilinearSampler().sample(data, points))

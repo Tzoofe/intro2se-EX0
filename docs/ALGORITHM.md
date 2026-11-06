@@ -94,6 +94,7 @@ A plane is projected only after it passes validation (FR16 to FR21, DD4), with `
 2. Isosceles: `|dist(a1, b) - dist(a2, c)| < EPS`.
 3. Trapezoid only: `dist(a1, a2) <= dist(b, c) + EPS`.
 4. Trapezoid only, same plane: the distance of `a2` from the plane through `a1, b, c`, which is `|(a2 - a1) · n| / |n|` with `n = (b - a1) × (c - a1)`, is less than EPS.
+5. Not too large: the legs and the base are at most 2048 voxels (FR42, DD13). Coordinates are not limited, so without this check one row could ask for an image that does not fit in memory.
 
 An invalid plane raises `InvalidPlaneError`; the demo turns it into an error frame (DD3).
 
@@ -101,7 +102,7 @@ An invalid plane raises `InvalidPlaneError`; the demo turns it into an error fra
 
 ### Strategy for sampling
 
-`Projector` computes **where** to sample. A `Sampler` object decides **how** to read the value at a real-valued point. `NearestSampler` implements step 5 above for a whole array of points at once: it rounds the points, builds the inside-M mask, and reads only the inside voxels. A different sampler (for example trilinear interpolation) can be passed to `Projector` without changing it (NFR12).
+`Projector` computes **where** to sample. A `Sampler` object decides **how** to read the value at a real-valued point. `NearestSampler` implements step 5 above for a whole array of points at once: it rounds the points, builds the inside-M mask, and reads only the inside voxels. A different sampler can be passed to `Projector` without changing it (NFR12). `TrilinearSampler` is one: it computes the weighted average of the 8 voxels around each point, with weights from the point's fractional position, and rounds the result to the volume's type. A point is inside when `0 <= p <= size - 1` on every axis, so all 8 voxels exist. It is used in the experiment to compare with nearest-neighbor ([EXPERIMENT.md](EXPERIMENT.md)).
 
 Rounding uses `np.rint`, which rounds exact halves to the nearest even integer (2.5 → 2, 3.5 → 4). It is still nearest-neighbor and deterministic (NFR6).
 
@@ -112,8 +113,8 @@ Python loops are slow, so the work is expressed as whole-array NumPy operations.
 | Version | Loops in Python | Speed (500³, 559×501 triangle) |
 |---|---|---|
 | Direct translation | rows and pixels | ~28 fps on a smaller image |
-| `RowLoopProjector` | rows only; each row is one NumPy operation | 94 fps |
-| `Projector` | none | 166 fps |
+| `RowLoopProjector` | rows only; each row is one NumPy operation | 100 fps |
+| `Projector` | none | 167 fps |
 
 **Row loop.** For one row, all sample points are `p1 + x1[:, None] * dp` for `x1 = 0 .. n-1`: an n×3 array built in one operation. One call to the sampler reads all of them, and one assignment writes the whole row of E.
 

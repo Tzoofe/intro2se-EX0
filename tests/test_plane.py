@@ -55,3 +55,18 @@ def test_row4_invalid_in_qa_order():
     """Row 4 read as (a1, a2, b, c) is not isosceles, which supports DD2."""
     with pytest.raises(InvalidPlaneError):
         Plane.from_trapezoid((200, 50, 0), (200, 350, 0), (200, 0, 500), (200, 400, 500))
+
+
+def test_largest_plane_is_valid():
+    Plane.from_trapezoid((0, 0, 0), (2048, 0, 0), (0, 2048, 0), (2048, 2048, 0))
+
+
+@pytest.mark.parametrize("make, points", [
+    (Plane.from_triangle, [(0, 0, 0), (1e7, 0, 0), (0, 1e7, 0)]),
+    (Plane.from_trapezoid, [(0, 0, 0), (2049, 0, 0), (0, 10, 0), (2049, 10, 0)]),
+    (Plane.from_trapezoid, [(0, 0, 0), (10, 0, 0), (0, 2049, 0), (10, 2049, 0)]),
+])
+def test_too_large(make, points):
+    """FR42: a plane longer than MAX_SIDE would not fit in memory; it is invalid instead."""
+    with pytest.raises(InvalidPlaneError, match="too large"):
+        make(*points)

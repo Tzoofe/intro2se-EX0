@@ -1,6 +1,10 @@
 import numpy as np
 
 EPS = 0.001
+# Longest allowed leg or base, in voxels (FR42). The longest line inside the largest
+# allowed volume (1023^3) is 1023 * sqrt(3) = 1772 voxels, so a longer plane only adds
+# empty pixels, and a very long one would not fit in memory.
+MAX_SIDE = 2048
 
 
 class InvalidPlaneError(ValueError):
@@ -14,6 +18,11 @@ def _dist(p, q):
 def _dist_from_line(p, start, end):
     """Distance of point p from the line through start and end."""
     return np.linalg.norm(np.cross(end - start, p - start)) / _dist(start, end)
+
+
+def _check_size(leg, base):
+    if leg > MAX_SIDE or base > MAX_SIDE:
+        raise InvalidPlaneError(f"plane too large: leg {leg:.1f}, base {base:.1f} voxels (max {MAX_SIDE})")
 
 
 class Plane:
@@ -44,6 +53,7 @@ class Plane:
         dist_ac = _dist(a, c)
         if abs(dist_ab - dist_ac) >= EPS:
             raise InvalidPlaneError(f"not isosceles: dist(a,b) = {dist_ab:.4f}, dist(a,c) = {dist_ac:.4f}")
+        _check_size(dist_ab, _dist(b, c))
 
         return cls(a, b, a.copy(), c)
 
@@ -63,6 +73,7 @@ class Plane:
 
         dist_a1a2 = _dist(a1, a2)
         dist_bc = _dist(b, c)
+        _check_size(dist_a1b, dist_bc)
         if dist_a1a2 > dist_bc + EPS:
             raise InvalidPlaneError(f"top base longer than bottom: dist(a1,a2) = {dist_a1a2:.4f} > dist(b,c) = {dist_bc:.4f}")
 

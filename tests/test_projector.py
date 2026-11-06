@@ -5,7 +5,7 @@ import pytest
 
 from projection.plane import Plane
 from projection.projector import Projector, RowLoopProjector
-from projection.sampler import NearestSampler, Sampler
+from projection.sampler import NearestSampler, Sampler, TrilinearSampler
 
 rng = np.random.default_rng(0)
 M = rng.integers(1, 256, (60, 70, 80), dtype=np.uint8)  # no zeros, so "sampled" is visible in E
@@ -109,3 +109,12 @@ def test_matches_row_loop_trapezoids(points):
     E, mask = Projector(NearestSampler()).project(M, plane)
     E_ref, mask_ref = RowLoopProjector(NearestSampler()).project(M, plane)
     assert np.array_equal(E, E_ref) and np.array_equal(mask, mask_ref)
+
+
+def test_oracle_with_trilinear_sampler():
+    """An axis-aligned plane samples exact voxel positions, so trilinear gives the slice too."""
+    k, n, m = 20, 40, 50
+    plane = Plane.from_trapezoid((0, 0, k), (n, 0, k), (0, m, k), (n, m, k))
+    E, mask = Projector(TrilinearSampler()).project(M, plane)
+    assert np.array_equal(E, M[:n + 1, :m + 1, k])
+    assert mask.all()

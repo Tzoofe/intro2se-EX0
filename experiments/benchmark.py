@@ -1,5 +1,6 @@
 """Measures projection speed (NFR1 to NFR3): projection step only, average of 50 runs.
-Compares Projector (vectorized) with RowLoopProjector (one Python loop per row).
+Compares Projector (vectorized) with RowLoopProjector (one Python loop per row), and
+NearestSampler with TrilinearSampler (speed, and how different the images are).
 
 Run from the project root: python -m experiments.benchmark"""
 import os
@@ -10,7 +11,8 @@ import numpy as np
 
 from projection.plane import Plane
 from projection.projector import Projector, RowLoopProjector
-from projection.sampler import NearestSampler
+from projection.normalizer import Normalizer
+from projection.sampler import NearestSampler, TrilinearSampler
 from projection.volume import NrrdReader
 
 RUNS = 50
@@ -33,6 +35,19 @@ def compare(name, data, planes):
         f_loop = fps(loop, data, plane)
         f_fast = fps(fast, data, plane)
         print(f"| {name} | {plane_name} | {h}x{w} | {f_loop:.0f} | {f_fast:.0f} | {f_fast / f_loop:.1f}x |")
+
+
+def compare_samplers(name, volume, plane):
+    nearest = Projector(NearestSampler())
+    trilinear = Projector(TrilinearSampler())
+    normalizer = Normalizer(volume.min_value, volume.max_value)
+    E_n, mask_n = nearest.project(volume.data, plane)
+    E_t, mask_t = trilinear.project(volume.data, plane)
+    both = mask_n & mask_t
+    diff = np.abs(normalizer.normalize(E_n, both).astype(int) - normalizer.normalize(E_t, both).astype(int))
+    f_n = fps(nearest, volume.data, plane)
+    f_t = fps(trilinear, volume.data, plane)
+    print(f"| {name} | {f_n:.0f} | {f_t:.0f} | {diff[both].mean():.2f} | {diff[both].max()} |")
 
 
 def main():
@@ -59,6 +74,14 @@ def main():
             print(f"| {name} | missing {path} | | | | |")
             continue
         compare(name, NrrdReader.read(path).data, head_planes)
+
+    print("\nNearest vs trilinear, oblique 45° rectangle; difference in 8-bit gray levels (0 to 255):\n")
+    print("| Volume | Nearest fps | Trilinear fps | Mean difference | Max difference |")
+    print("|---|---|---|---|---|")
+    for name in DATASETS:
+        path = f"data/{name}.nrrd"
+        if os.path.exists(path):
+            compare_samplers(name, NrrdReader.read(path), head_planes[1][1])
 
 
 if __name__ == "__main__":

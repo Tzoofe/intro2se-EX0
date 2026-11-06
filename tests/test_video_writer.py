@@ -34,7 +34,10 @@ def test_error_frame_not_black(tmp_path):
     path = str(tmp_path / "out.mp4")
     with VideoWriter(path, 100, 100) as writer:
         writer.write_error_frame(3)
-    assert read_frames(path)[0].max() > 200
+        writer.write_error_frame(4, "a long reason that does not fit on one line of a small frame")
+    frames = read_frames(path)
+    assert len(frames) == 2
+    assert frames[0].max() > 200 and frames[1].max() > 200
 
 
 def test_unwritable_path(tmp_path):

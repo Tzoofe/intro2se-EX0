@@ -23,7 +23,19 @@ def test_sample_csv_one_frame_per_row(volume_path, tmp_path, capsys):
     out = str(tmp_path / "out.mp4")
     assert main(["Ex0.py", volume_path, "Ex0.csv", out]) == 0
     assert count_frames(out) == 4
-    assert "row 3" in capsys.readouterr().err
+    output = capsys.readouterr()
+    assert "row 3" in output.err
+    assert "Projected 3 plane(s)" in output.out and "fps" in output.out
+
+
+def test_huge_plane_becomes_error_frame(volume_path, tmp_path, capsys):
+    """One plane too large for memory must not stop the video (DD3, FR42)."""
+    csv_path = tmp_path / "huge.csv"
+    csv_path.write_text("header\n3,0,0,0,10000000,0,0,0,10000000,0\n3,0,30,10,40,0,10,40,60,10\n")
+    out = str(tmp_path / "out.mp4")
+    assert main(["Ex0.py", volume_path, str(csv_path), out]) == 0
+    assert count_frames(out) == 2
+    assert "too large" in capsys.readouterr().err
 
 
 def test_all_rows_invalid(volume_path, tmp_path):

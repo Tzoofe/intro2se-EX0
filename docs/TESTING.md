@@ -12,12 +12,14 @@ Requirement numbers (FR, NFR, DD) refer to [SRS.md](SRS.md).
 ## How to run
 
 ```bash
-pytest          # all 75 tests, about 8 seconds
+pytest          # all 85 tests, about 9 seconds
 pytest -s       # also prints the measured fps
 pytest tests/test_plane.py    # one component
 ```
 
 `pytest.ini` adds the project root to the import path, so plain `pytest` works from the root.
+
+The same tests run automatically on every push and pull request on Linux, Windows and macOS (Python 3.12) with GitHub Actions; the result is the badge at the top of the README.
 
 ## Approach
 
@@ -36,12 +38,12 @@ pytest tests/test_plane.py    # one component
 | File | Tests | What is checked |
 |---|---|---|
 | `test_volume.py` | 13 | All six integer voxel types load (FR3); signed min/max; rejects 2D (FR4), float, size 1024 (FR5); accepts 1023; garbage file and missing file give clear errors (FR7). |
-| `test_plane.py` | 14 | Valid triangle (stored with `a1 = a2`, DD5) and trapezoid; values within EPS accepted; each invalid condition rejected with its reason: not isosceles, degenerate, collinear, top base longer than bottom, not on the same plane (FR16 to FR21). |
+| `test_plane.py` | 18 | Valid triangle (stored with `a1 = a2`, DD5) and trapezoid; values within EPS accepted; each invalid condition rejected with its reason: not isosceles, degenerate, collinear, top base longer than bottom, not on the same plane (FR16 to FR21); planes up to 2048 voxels accepted, longer ones rejected as too large (FR42). |
 | `test_csv_reader.py` | 14 | One result per row with row numbers (FR8 to FR14); Excel export format (BOM, CRLF); seven kinds of bad rows (invalid N, non-number, missing value, too few or too many coordinates, `nan`, invalid plane); decimals and negatives (FR10); blank lines; header-only file (FR15); missing file; binary (Excel) file. |
-| `test_sampler.py` | 4 | Nearest voxel; points outside the volume give 0 and are marked outside (FR30); voxel type kept; `Sampler` cannot be created (abstract). |
-| `test_projector.py` | 16 | See below. |
+| `test_sampler.py` | 8 | Nearest voxel; points outside the volume give 0 and are marked outside (FR30); voxel type kept; `Sampler` cannot be created (abstract). Trilinear: equals the voxel at voxel centers; exact on a volume whose values are a linear function of x, y, z; midpoint of a cube is the average of its 8 corners; edges and points just outside the volume. |
+| `test_projector.py` | 17 | See below. |
 | `test_normalizer.py` | 4 | Global scale for signed data (FR36); background black (FR37); constant volume maps to 0; no overflow for `uint32`. |
-| `test_video_writer.py` | 4 | Frame size rounded to even and frame count (FR35, FR38); padding centered and top-aligned; error frame drawn (FR41); unwritable path gives a clear error (FR40). |
+| `test_video_writer.py` | 4 | Frame size rounded to even and frame count (FR35, FR38); padding centered and top-aligned; error frames drawn, also with a reason too long for one line (FR41); unwritable path gives a clear error (FR40). |
 
 ### Projector tests
 
@@ -55,8 +57,9 @@ pytest tests/test_plane.py    # one component
 | Plane partly outside | Pixels outside the volume are not marked; pixels inside are. | FR30, FR37 |
 | Voxel type kept | `E` has the same type as the volume. | FR33 |
 | Sampler injected | With a test sampler that always returns 7, every sampled pixel is 7, so `Projector` really uses the sampler it is given. | NFR12 |
+| Oracle with trilinear | The axis-aligned oracle also holds with `TrilinearSampler`, since every sample falls exactly on a voxel. | NFR12 |
 | Same as row loop (7 planes) | `Projector` equals `RowLoopProjector` on axis-aligned, oblique, partly outside and tiny (smaller than one voxel) triangles, and on rectangular, non-parallel and oblique trapezoids. | — |
-| Performance | Average of 50 projections of a 559×501 triangle on a random 500³ `uint8` volume is at least 30 fps (measured ~170 fps). | NFR1, NFR3 |
+| Performance | Average of 50 projections of a 559×501 triangle on a random 500³ `uint8` volume is at least 30 fps (measured ~167 fps). | NFR1, NFR3 |
 
 ### Sample data tests
 
@@ -71,8 +74,9 @@ The lecturer's sample CSV ([Ex0.csv](../Ex0.csv)) is used directly:
 
 | Test | Expected |
 |---|---|
-| Sample CSV | exit code 0; video with **4 frames** (one per row, FR35); warning for row 3 printed (FR22). |
+| Sample CSV | exit code 0; video with **4 frames** (one per row, FR35); warning for row 3 printed (FR22); projection time and fps printed (FR43). |
 | All rows invalid | exit code 0; one error frame per row. |
+| Huge plane (legs of 10,000,000 voxels) next to a normal plane | exit code 0; 2 frames: an error frame ("too large") and the normal projection, so one huge row does not stop the video (FR42, DD13). |
 | Wrong number of arguments (2 cases) | exit code 2 with a usage message. |
 | Missing NRRD, missing CSV | exit code 1 with a clear message (FR7, FR15). |
 | Output folder does not exist | exit code 1 with a clear message (FR40). |
@@ -82,7 +86,7 @@ The lecturer's sample CSV ([Ex0.csv](../Ex0.csv)) is used directly:
 Some properties are visual and are checked by looking at the output:
 
 - The experiment videos ([EXPERIMENT.md](EXPERIMENT.md)) on four real volumes: the head, onion, biscuit cake and Swiss roll. The layered volumes make wrong geometry easy to spot: the onion's rings must turn into circles and the Swiss roll's spiral into straight layers as the plane rotates.
-- The error frame shows a white X and `Invalid plane: row N`.
+- The error frame shows a white X, `Invalid plane: row N` and the reason, wrapped to fit the frame.
 - Every dataset volume loads and runs through the demo, covering int16, uint8, uint16 and uint32 in real files.
 
 ## Requirements coverage
@@ -91,11 +95,12 @@ Some properties are visual and are checked by looking at the output:
 |---|---|
 | FR1 to FR7 (NRRD input) | `test_volume.py`, `test_ex0.py`, dataset run |
 | FR8 to FR15 (CSV input) | `test_csv_reader.py`, `test_ex0.py` |
-| FR16 to FR23 (validation) | `test_plane.py`, `test_csv_reader.py`, `test_projector.py` |
+| FR16 to FR23, FR42 (validation) | `test_plane.py`, `test_csv_reader.py`, `test_projector.py` |
 | FR24 to FR33 (projection) | `test_projector.py`, `test_sampler.py` |
-| FR34 to FR41 (video) | `test_normalizer.py`, `test_video_writer.py`, `test_ex0.py` |
+| FR34 to FR41, FR43 (video, demo output) | `test_normalizer.py`, `test_video_writer.py`, `test_ex0.py` |
 | NFR1 to NFR3 (performance) | `test_projector.py::test_performance_500_cubed`, [experiments/benchmark.py](../experiments/benchmark.py) |
 | NFR5 (no crash) | error-path tests in every file, `test_ex0.py` |
-| NFR10 to NFR12 (design) | per-component tests, projector tests on plain arrays, sampler injection test |
+| NFR7 (portability) | the whole suite runs on Linux, Windows and macOS on every push ([.github/workflows/tests.yml](../.github/workflows/tests.yml)) |
+| NFR10 to NFR12 (design) | per-component tests, projector tests on plain arrays, sampler injection test, `TrilinearSampler` used through the same `Projector` |
 
-Not covered by automated tests: `raw` encoding and big-endian NRRD files (FR2; both are handled by pynrrd, but all test and sample files are gzip, little-endian), and portability to Linux and Windows (NFR7; tested on macOS only).
+Not covered by automated tests: `raw` encoding and big-endian NRRD files (FR2; both are handled by pynrrd, but all test and sample files are gzip, little-endian).

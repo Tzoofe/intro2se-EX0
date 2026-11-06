@@ -1,6 +1,23 @@
 # Ex1 - Plane Projection of a 3D Volume
 
+[![tests](https://github.com/Tzoofe/intro2se-EX0/actions/workflows/tests.yml/badge.svg)](https://github.com/Tzoofe/intro2se-EX0/actions/workflows/tests.yml)
+
 Compute 2D cross-sections of a 3D medical volume along arbitrary planes, and render a sequence of such slices as a video.
+
+## Results
+
+A plane rotating 180° through each volume, one frame per CSV row ([experiments/rotation.csv](experiments/rotation.csv)):
+
+| MRHead (int16) | Onion (uint8) | Swiss roll (uint32) |
+|---|---|---|
+| ![Rotating plane through a head MRI](docs/media/MRHead_1_rotation.gif) | ![Rotating plane through an onion](docs/media/onion_rotation.gif) | ![Rotating plane through a Swiss roll](docs/media/swiss_roll_rotation.gif) |
+
+Output videos (MP4):
+
+- **Demo on the lecturer's sample CSV:** [MRHead_1_sample.mp4](experiments/output/MRHead_1_sample.mp4): `python Ex0.py data/MRHead_1.nrrd Ex0.csv out.mp4`. 4 frames; row 3 is invalid and becomes an error frame.
+- **Rotating plane:** [MRHead](experiments/output/MRHead_1_rotation.mp4) · [onion](experiments/output/onion_rotation.mp4) · [biscuit cake](experiments/output/biscuit_cake_rotation.mp4) · [Swiss roll](experiments/output/swiss_roll_rotation.mp4)
+
+Speed and the full discussion: [docs/EXPERIMENT.md](docs/EXPERIMENT.md).
 
 ## Problem
 
@@ -48,9 +65,18 @@ python Ex0.py file.nrrd file.csv file.mp4
   For N = 3 the points are `(a, b, c)` with `a` the apex. For N = 4 they are `(a1, b, a2, c)`: the trapezoid's two legs `a1→b` and `a2→c` (see SRS DD2).
 - **`file.mp4`**: an H.264 video at 10 fps with **exactly one frame per CSV row**:
     - a valid plane gives its projection, in 8-bit grayscale (global min/max of the volume), with a black background;
-    - an invalid row or plane gives an **error frame**: black, with a white X and the text `Invalid plane: row N`. The reason is printed to the terminal.
+    - an invalid row or plane gives an **error frame**: black, with a white X, the text `Invalid plane: row N` and the reason. The reason is also printed to the terminal.
 
   All frames have the same size (the largest projection, rounded up to even); smaller projections are centered horizontally and aligned to the top.
+
+Example output:
+
+```
+Warning: row 3: not isosceles: dist(a,b) = 497.3932, dist(a,c) = 476.8648
+Loaded data/MRHead_1.nrrd: 256 x 256 x 130, int16 (0.04 s)
+Projected 3 plane(s): average 7.73 ms per plane (129 fps)
+Wrote 4 frames (3 valid, 1 invalid) of size 402x504 to out.mp4 (0.06 s)
+```
 
 Exit codes: `0` success, `1` fatal error (missing or invalid NRRD, missing, empty or non-text CSV, output not writable), `2` wrong arguments.
 
@@ -73,11 +99,11 @@ pytest          # all tests
 pytest -s       # also prints the measured fps of the performance test
 ```
 
-The tests use synthetic volumes, so they do not need any NRRD file. See [docs/TESTING.md](docs/TESTING.md).
+The tests use synthetic volumes, so they do not need any NRRD file. They also run on every push on Linux, Windows and macOS with GitHub Actions (badge above). See [docs/TESTING.md](docs/TESTING.md).
 
 ## Dataset
 
-NRRD files go in [data/](data/). They are not committed (`.gitignore`); download them and place them there.
+NRRD files are not committed (`.gitignore`). To run the demo, place them in `data/`.
 
 | File | Content | Shape | Voxel type | Encoding | Source |
 |---|---|---|---|---|---|
@@ -98,26 +124,27 @@ Other data:
 ```
 ├── Ex0.py                  # demo CLI: arguments, flow, error handling, exit codes
 ├── Ex0.csv                 # sample planes
+├── .github/workflows/      # tests on Linux, Windows and macOS on every push
 ├── projection/
 │   ├── volume.py           # Volume, NrrdReader (+ validation)
 │   ├── plane.py            # Plane (triangle / trapezoid), InvalidPlaneError
 │   ├── csv_reader.py       # PlaneCsvReader -> one PlaneRow per CSV row
-│   ├── sampler.py          # Sampler (abstract), NearestSampler
+│   ├── sampler.py          # Sampler (abstract), NearestSampler, TrilinearSampler
 │   ├── projector.py        # Projector (vectorized), RowLoopProjector (reference)
 │   ├── normalizer.py       # Normalizer: global 8-bit scaling, black background
 │   └── video_writer.py     # VideoWriter: padding, error frames, MP4
 ├── tests/                  # pytest suite
-├── experiments/            # rotation CSV generator, benchmark, output videos
+├── experiments/            # rotation CSV generator, benchmark, GIF maker, output videos
 ├── data/                   # NRRD volumes (not committed)
-└── docs/                   # SRS, algorithm, testing strategy, experiment
+└── docs/                   # SRS, design, algorithm, testing strategy, experiment; media/ has the GIFs
 ```
 
 Flow: `NrrdReader → Volume`, `PlaneCsvReader → [PlaneRow]`, then for each row `Projector(NearestSampler) → (E, mask) → Normalizer → VideoWriter`.
 
-Design notes:
+Design notes (full design with class and sequence diagrams: [docs/DESIGN.md](docs/DESIGN.md)):
 - Each component is a separate class, testable on its own.
 - `Projector` works on any 3D NumPy array and knows nothing about NRRD or CSV.
-- The sampling method is injected into `Projector` (Strategy pattern), so nearest-neighbor can be replaced, e.g. with trilinear interpolation, without changing `Projector`.
+- The sampling method is injected into `Projector` (Strategy pattern). Two samplers exist: `NearestSampler` (used by the demo) and `TrilinearSampler`; switching between them does not change `Projector`.
 - `Plane.from_triangle` / `Plane.from_trapezoid` are factory methods that validate the points; a triangle is stored as a trapezoid with `a1 = a2`, so one algorithm handles both.
 
 ## Performance
@@ -126,13 +153,14 @@ Projection step only, synthetic 500×500×500 `uint8` volume, average of 50 runs
 
 | Plane | Output (H×W) | Row loop (`RowLoopProjector`) | Fully vectorized (`Projector`) |
 |---|---|---|---|
-| Triangle, axis-aligned | 559×501 | 94 fps | **166 fps** |
-| Triangle, oblique | 749×501 | 78 fps | **129 fps** |
-| Rectangle, axis-aligned | 500×500 | 83 fps | **84 fps** |
-| Rectangle, oblique 45° | 500×501 | 88 fps | **87 fps** |
+| Triangle, axis-aligned | 559×501 | 100 fps | **167 fps** |
+| Triangle, oblique | 749×501 | 75 fps | **122 fps** |
+| Rectangle, axis-aligned | 500×500 | 79 fps | **81 fps** |
+| Rectangle, oblique 45° | 500×501 | 83 fps | **85 fps** |
 
-- The 30 fps requirement is met for every plane. The 100 fps target is met for triangles; full 500×500 rectangles reach about 85 fps, limited by memory access rather than Python overhead.
-- On the 256×256×130 dataset volumes, the vectorized projector runs at 520 to 790 fps.
+- The 30 fps requirement is met for every plane. The 100 fps target is met for triangles; full 500×500 rectangles reach about 80 to 85 fps, limited by memory access rather than Python overhead.
+- On the 256×256×130 dataset volumes, the vectorized projector runs at 500 to 770 fps.
+- Trilinear interpolation is about 2.5 times slower than nearest-neighbor (about 210 vs 530 fps on the dataset volumes), and the images differ by only 2.6 to 4.0 gray levels (out of 255) on average.
 - An earlier version with plain Python loops for every pixel ran at ~28 fps, even on a smaller 238×237 image.
 
 Full results, videos and discussion: [docs/EXPERIMENT.md](docs/EXPERIMENT.md).
@@ -140,6 +168,7 @@ Full results, videos and discussion: [docs/EXPERIMENT.md](docs/EXPERIMENT.md).
 ## Documentation
 
 - [docs/SRS.md](docs/SRS.md): Software Requirements Specification (functional and non-functional requirements, design decisions).
+- [docs/DESIGN.md](docs/DESIGN.md): software design: classes and responsibilities, design patterns, data flow, error handling.
 - [docs/ALGORITHM.md](docs/ALGORITHM.md): detailed algorithm: the given algorithm, its problems and fixes, vectorization, complexity.
 - [docs/TESTING.md](docs/TESTING.md): testing strategy, test levels and requirements coverage.
 - [docs/EXPERIMENT.md](docs/EXPERIMENT.md): experiment, speed measurements and output videos.

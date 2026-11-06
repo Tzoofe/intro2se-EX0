@@ -40,23 +40,55 @@ class VideoWriter:
         frame[:h, left:left + w] = image
         self._append(frame)
 
-    def write_error_frame(self, row_number):
-        """A black frame with a white X and the failed row number (FR41)."""
+    def write_error_frame(self, row_number, reason=""):
+        """A black frame with a white X, the failed row number and the reason (FR41)."""
         img = Image.new("L", (self.width, self.height), 0)
         draw = ImageDraw.Draw(img)
         line_width = max(1, min(self.width, self.height) // 100)
         draw.line([(0, 0), (self.width - 1, self.height - 1)], fill=255, width=line_width)
         draw.line([(self.width - 1, 0), (0, self.height - 1)], fill=255, width=line_width)
 
-        text = f"Invalid plane: row {row_number}"
-        font = ImageFont.load_default(size=max(10, self.width // 20))
-        left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
-        x = (self.width - (right - left)) // 2
-        y = (self.height - (bottom - top)) // 2
-        # black box behind the text, so it stays readable over the X
-        draw.rectangle([x - 4, y - 4, x + (right - left) + 4, y + (bottom - top) + 8], fill=0)
-        draw.text((x, y), text, fill=255, font=font)
+        title = f"Invalid plane: row {row_number}"
+        lines = [(title, self._fit_font(draw, title, self.width // 20))]
+        if reason:
+            font = ImageFont.load_default(size=max(10, self.width // 32))
+            lines += [(line, font) for line in self._wrap(draw, reason, font)]
+
+        boxes = [draw.textbbox((0, 0), text, font=font) for text, font in lines]
+        gap = 6
+        total_height = sum(bottom - top for _, top, _, bottom in boxes) + gap * (len(lines) - 1)
+        y = (self.height - total_height) // 2
+        for (text, font), (left, top, right, bottom) in zip(lines, boxes):
+            x = (self.width - (right - left)) // 2
+            # black box behind the text, so it stays readable over the X
+            draw.rectangle([x - 4, y - 4, x + (right - left) + 4, y + (bottom - top) + 8], fill=0)
+            draw.text((x, y - top), text, fill=255, font=font)
+            y += bottom - top + gap
         self._append(np.asarray(img))
+
+    def _fit_font(self, draw, text, size):
+        """The default font at the given size, made smaller until text fits the frame width."""
+        size = max(10, size)
+        font = ImageFont.load_default(size=size)
+        while size > 8 and self._text_width(draw, text, font) > self.width * 0.9:
+            size -= 1
+            font = ImageFont.load_default(size=size)
+        return font
+
+    def _wrap(self, draw, text, font):
+        """Splits text into lines that fit the frame width, breaking between words."""
+        lines = []
+        for word in text.split():
+            if lines and self._text_width(draw, lines[-1] + " " + word, font) <= self.width * 0.9:
+                lines[-1] += " " + word
+            else:
+                lines.append(word)
+        return lines
+
+    @staticmethod
+    def _text_width(draw, text, font):
+        left, _, right, _ = draw.textbbox((0, 0), text, font=font)
+        return right - left
 
     def _append(self, frame):
         try:
@@ -69,5 +101,5 @@ if __name__ == "__main__":
     gradient = np.tile(np.arange(0, 256, 2, dtype=np.uint8), (100, 1))
     with VideoWriter("test.mp4", 200, 301) as writer:
         writer.write_frame(gradient)
-        writer.write_error_frame(3)
+        writer.write_error_frame(3, "not isosceles: dist(a,b) = 10.0000, dist(a,c) = 20.0000")
     print("wrote test.mp4", writer.height, writer.width)
