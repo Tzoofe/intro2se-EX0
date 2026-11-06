@@ -25,8 +25,11 @@ class PlaneCsvReader:
     @staticmethod
     def read(path):
         # utf-8-sig drops the BOM that Excel adds to exported CSV files.
-        with open(path, newline="", encoding="utf-8-sig") as f:
-            rows = list(csv.reader(f))
+        try:
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                rows = list(csv.reader(f))
+        except UnicodeDecodeError:
+            raise ValueError(f"{path}: not a text CSV file (an Excel file must be exported as CSV, not renamed)")
 
         results = []
         for row_number, cells in enumerate(rows[1:], start=1):

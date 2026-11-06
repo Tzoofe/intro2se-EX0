@@ -11,6 +11,13 @@ class Projector:
     def __init__(self, sampler):
         self.sampler = sampler
 
+    @staticmethod
+    def output_size(plane):
+        """(height, width) of the projection of plane (FR26, DD8)."""
+        dist_ab = np.linalg.norm(plane.b - plane.a1)
+        dist_bc = np.linalg.norm(plane.c - plane.b)
+        return int(np.floor(dist_ab)) + 1, int(np.ceil(dist_bc)) + 1
+
     def project(self, data, plane):
         """Returns (E, mask): E[y, x] is the image with data's dtype, and mask[y, x]
         is True where the pixel was sampled from inside the volume (used for FR37)."""
@@ -20,8 +27,7 @@ class Projector:
         v1 = (b - a1) / dist_ab
         v2 = (c - a2) / dist_ab
 
-        height = int(np.floor(dist_ab)) + 1
-        width = int(np.ceil(dist_bc)) + 1
+        height, width = self.output_size(plane)
         E = np.zeros((height, width), dtype=data.dtype)
         mask = np.zeros((height, width), dtype=bool)
 
