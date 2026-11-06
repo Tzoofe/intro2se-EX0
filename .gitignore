@@ -6,3 +6,5 @@ __pycache__/
 CLAUDE.MD
 algo.py
 .coverage
+*.mp4
+!experiments/output/*.mp4

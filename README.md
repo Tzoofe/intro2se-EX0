@@ -93,15 +93,37 @@ Exit codes: `0` success, `1` fatal error (missing or invalid NRRD, missing, empt
 
 ## How to run
 
+**1. Install** (Python 3.12+):
+
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
-python Ex0.py data/MRHead_1.nrrd Ex0.csv out.mp4
 ```
 
-Requires Python 3.12+. Dependencies: NumPy, [pynrrd](https://github.com/mhe/pynrrd) (NRRD reading), imageio + imageio-ffmpeg (MP4 writing, ffmpeg included), Pillow (error-frame text), pytest (tests).
+**2. Add a volume:** put an NRRD file in `data/` (see [Dataset](#dataset)), for example `data/MRHead_1.nrrd`.
+
+**3. Run:**
+
+```bash
+# a plane rotating through the volume: 60 frames
+python Ex0.py data/MRHead_1.nrrd experiments/rotation.csv rotation.mp4
+
+# the sample plane list: 4 frames, row 3 is an error frame
+python Ex0.py data/MRHead_1.nrrd Ex0.csv sample.mp4
+```
+
+Open the `.mp4` in any video player. The terminal shows the load time, the projection speed and the number of frames.
+
+**4. Reproduce the experiment** (optional):
+
+```bash
+python -m experiments.make_rotation_csv    # writes experiments/rotation.csv
+python -m experiments.benchmark            # speed tables
+python -m experiments.make_gifs            # GIF previews for this README
+```
+
+Dependencies: NumPy, [pynrrd](https://github.com/mhe/pynrrd) (NRRD reading), imageio + imageio-ffmpeg (MP4 writing, ffmpeg included), Pillow (error-frame text), pytest and pytest-cov (tests).
 
 ## How to test
 
