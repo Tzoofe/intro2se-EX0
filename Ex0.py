@@ -1,4 +1,4 @@
-"""Demo: python Ex0.py file.nrrd file.csv file.mp4
+"""Command-line program: python Ex0.py file.nrrd file.csv file.mp4
 
 Projects the volume onto every plane in the CSV and writes one video frame
 per CSV row: the projection for a valid plane, an error frame otherwise."""

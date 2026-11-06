@@ -43,7 +43,7 @@ def test_invalid_trapezoids(points, reason):
 
 
 def test_sample_csv_rows():
-    """The lecturer's sample: rows 1, 2, 4 valid, row 3 not isosceles (DD2: order a1, b, a2, c)."""
+    """The sample plane list (Ex0.csv): rows 1, 2, 4 valid, row 3 not isosceles (DD2: order a1, b, a2, c)."""
     Plane.from_triangle((200, 200, 0), (0, 200, 400), (400, 200, 400))
     Plane.from_trapezoid((200, 0, 0), (200, 0, 500), (200, 400, 0), (200, 400, 500))
     with pytest.raises(InvalidPlaneError):

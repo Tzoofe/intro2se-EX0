@@ -142,7 +142,7 @@ A plane is projected only after it passes validation (FR16 to FR21, DD4), with `
 4. Trapezoid only, same plane: the distance of `a2` from the plane through `a1, b, c`, which is `|(a2 - a1) · n| / |n|` with `n = (b - a1) × (c - a1)`, is less than EPS.
 5. Not too large: the legs and the base are at most 2048 voxels (FR42, DD13). Coordinates are not limited, so without this check one row could ask for an image that does not fit in memory.
 
-An invalid plane raises `InvalidPlaneError`; the demo turns it into an error frame (DD3).
+An invalid plane raises `InvalidPlaneError`; the program turns it into an error frame (DD3).
 
 ## 5. Implementation
 
@@ -186,7 +186,7 @@ E[rows, x] = values;  mask[rows, x] = inside
 
 ### Frame size without projecting
 
-The output size depends only on the plane's geometry (`H = floor(Dab) + 1`, `W = ceil(Dbc) + 1`), so `Projector.output_size(plane)` computes it without sampling. The demo uses it to find the common video frame size (FR38) before the first frame, so frames can be written one at a time and never all kept in memory (NFR4).
+The output size depends only on the plane's geometry (`H = floor(Dab) + 1`, `W = ceil(Dbc) + 1`), so `Projector.output_size(plane)` computes it without sampling. The program uses it to find the common video frame size (FR38) before the first frame, so frames can be written one at a time and never all kept in memory (NFR4).
 
 ## 6. Output stage
 

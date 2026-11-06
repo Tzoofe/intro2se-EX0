@@ -91,13 +91,13 @@ classDiagram
 | `PlaneCsvReader` | `csv_reader.py` | Reads the CSV and returns one `PlaneRow` per data row. Parsing errors and `InvalidPlaneError` are caught here and stored in the row (FR14, FR22). |
 | `PlaneRow` | `csv_reader.py` | The result of one row: a `Plane`, or an error message, plus the row number. |
 | `Sampler` | `sampler.py` | Abstract interface: read the values of a 3D array at many real-valued points at once, and say which points are inside the array. |
-| `NearestSampler` | `sampler.py` | Nearest voxel (FR30, DD9). The sampler used by the demo. |
+| `NearestSampler` | `sampler.py` | Nearest voxel (FR30, DD9). The sampler used by the command-line program. |
 | `TrilinearSampler` | `sampler.py` | Weighted average of the 8 surrounding voxels. Smoother and slower; used in the experiment to compare with nearest. |
 | `Projector` | `projector.py` | The projection algorithm, fully vectorized. Computes where to sample, asks its `Sampler` for the values, and returns the image `E` and a `mask` of sampled pixels. |
-| `RowLoopProjector` | `projector.py` | The same algorithm with one Python loop iteration per row. Closer to the given algorithm; used as a reference in tests and in the experiment. |
+| `RowLoopProjector` | `projector.py` | The same algorithm with one Python loop iteration per row. Closer to the original algorithm; used as a reference in tests and in the experiment. |
 | `Normalizer` | `normalizer.py` | Converts `E` to 8-bit with the volume's global min/max; pixels outside the mask stay black (FR36, FR37). |
 | `VideoWriter` | `video_writer.py` | Pads every frame to one even size, draws error frames, and writes the H.264 MP4 (FR34 to FR41). Used as a context manager so the file is always closed. |
-| `main` | `Ex0.py` | The demo: connects the classes, prints warnings and timing, turns fatal errors into exit codes. |
+| `main` | `Ex0.py` | The command-line program: connects the classes, prints warnings and timing, turns fatal errors into exit codes. |
 
 ## 3. Design patterns
 

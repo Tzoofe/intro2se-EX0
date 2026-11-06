@@ -4,6 +4,17 @@
 
 Compute 2D cross-sections of a 3D medical volume along arbitrary planes, and render a sequence of such slices as a video.
 
+## Highlights
+
+- **Oblique slicing of 3D scans:** any plane through an MRI or CT volume, given by 3 points (triangle) or 4 points (trapezoid), becomes a 2D image; a list of planes becomes an MP4 video.
+- **Fast:** the projection is fully vectorized with NumPy, with no Python loop per pixel or per row: 120 to 170 fps for triangles on a 500×500×500 volume, 500 to 770 fps on 256×256×130 scans.
+- **Object-oriented design:** one class per responsibility, a Strategy pattern for sampling (nearest-neighbor and trilinear interpolation are interchangeable), and validated factory methods for planes. See [docs/DESIGN.md](docs/DESIGN.md).
+- **Robust:** every input is validated; an invalid plane becomes a visible error frame with its reason instead of stopping the run, and no input ends in a crash.
+- **Tested:** 88 tests with 100% line and branch coverage, including exact-answer (oracle) tests and a speed test, run on Linux, Windows and macOS on every push.
+- **Documented:** requirements (SRS), design, algorithm, testing strategy and experiment, with traceability from every requirement to its tests.
+
+**Tech stack:** Python 3.12, NumPy, pynrrd, imageio + ffmpeg (H.264), Pillow, pytest, GitHub Actions.
+
 ## Results
 
 A plane rotating 180° through each volume, one frame per CSV row ([experiments/rotation.csv](experiments/rotation.csv)):
@@ -35,15 +46,15 @@ The algorithm must be fast enough for interactive use: at least 30 fps (target 1
 - Planes defined by:
     - **3 points** `(a, b, c)` forming an isosceles triangle: `|dist(a, b) - dist(a, c)| < EPS`.
     - **4 points** `(a1, b, a2, c)` forming an isosceles trapezoid with legs `a1→b` and `a2→c`: `|dist(a1, b) - dist(a2, c)| < EPS`, `dist(a1, a2) <= dist(b, c)`, all points on the same plane.
-- Validation of planes (`EPS = 0.001`). An invalid plane raises an exception; the demo shows it as an error frame.
+- Validation of planes (`EPS = 0.001`). An invalid plane raises an exception; the program shows it as an error frame.
 - Projecting the volume onto each plane as a 2D image.
 - Writing all projections to an MP4 video, in the order given in the CSV.
-- A command-line demo (`Ex0.py`).
+- A command-line program (`Ex0.py`).
 
 ### Out of scope
 
 - A graphical or interactive user interface.
-- Physical (mm) coordinates: plane points are given in **voxel index coordinates** (as implied by the problem definition and the sample CSV).
+- Physical (mm) coordinates: plane points are given in **voxel index coordinates** (as implied by the problem definition and the sample plane list).
 - 3D rendering (volume rendering, surface rendering).
 - File formats other than NRRD for input and MP4 for output.
 
@@ -105,7 +116,7 @@ The tests use synthetic volumes, so they do not need any NRRD file. They also ru
 
 ## Dataset
 
-NRRD files are not committed (`.gitignore`). To run the demo, place them in `data/`.
+NRRD files are not committed (`.gitignore`). To run the program, place them in `data/`.
 
 | File | Content | Shape | Voxel type | Encoding | Source |
 |---|---|---|---|---|---|
@@ -124,7 +135,7 @@ Other data:
 ## Project Structure
 
 ```
-├── Ex0.py                  # demo CLI: arguments, flow, error handling, exit codes
+├── Ex0.py                  # command-line program: arguments, flow, error handling, exit codes
 ├── Ex0.csv                 # sample planes
 ├── .github/workflows/      # tests on Linux, Windows and macOS on every push
 ├── projection/
@@ -146,7 +157,7 @@ Flow: `NrrdReader → Volume`, `PlaneCsvReader → [PlaneRow]`, then for each ro
 Design notes (full design with class and sequence diagrams: [docs/DESIGN.md](docs/DESIGN.md)):
 - Each component is a separate class, testable on its own.
 - `Projector` works on any 3D NumPy array and knows nothing about NRRD or CSV.
-- The sampling method is injected into `Projector` (Strategy pattern). Two samplers exist: `NearestSampler` (used by the demo) and `TrilinearSampler`; switching between them does not change `Projector`.
+- The sampling method is injected into `Projector` (Strategy pattern). Two samplers exist: `NearestSampler` (used by the program) and `TrilinearSampler`; switching between them does not change `Projector`.
 - `Plane.from_triangle` / `Plane.from_trapezoid` are factory methods that validate the points; a triangle is stored as a trapezoid with `a1 = a2`, so one algorithm handles both.
 
 ## Performance

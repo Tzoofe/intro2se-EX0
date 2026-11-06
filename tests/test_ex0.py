@@ -1,4 +1,4 @@
-"""End-to-end tests of the demo (Ex0.main), on a synthetic volume."""
+"""End-to-end tests of the command-line program (Ex0.main), on a synthetic volume."""
 import imageio.v2 as imageio
 import nrrd
 import numpy as np
@@ -65,7 +65,7 @@ def test_unwritable_output(volume_path, tmp_path):
 
 
 def test_command_line_as_a_process(volume_path, tmp_path):
-    """NFR9: the exact command of the assignment, run as a separate process."""
+    """NFR9: the documented command, run as a separate process."""
     import subprocess
     import sys
 

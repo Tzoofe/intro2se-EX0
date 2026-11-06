@@ -45,7 +45,7 @@ Frame - a Single projection, written as one frame of the output video.
 - FR19: A trapezoid plane is valid only if dist(a1,a2) <= dist(b,c) + EPS.
 - FR20: A trapezoid plane is valid only if all four points lie on the same plane: the distance of a2 from the plane through a1, b, c is less than EPS.
 - FR21: A trapezoid plane is valid only if it is non-degenerate: dist(a1,b) > EPS and a1, b, c are not collinear.
-- FR22: A plane that fails validation shall raise an exception stating the failed condition. The CSV reader catches it and records the row number and the failed condition; the demo reports it and produces an error frame (FR41).
+- FR22: A plane that fails validation shall raise an exception stating the failed condition. The CSV reader catches it and records the row number and the failed condition; the program reports it and produces an error frame (FR41).
 - FR23: A plane that lies partially or fully outside the volume is valid; it is not rejected by validation.
 - FR42: A plane whose legs or base are longer than 2048 voxels is invalid (too large), and is handled like any other invalid plane (FR22).
 
@@ -72,7 +72,7 @@ Frame - a Single projection, written as one frame of the output video.
 - FR39: The video frame rate shall be 10 frames per second by default.
 - FR40: If the output file cannot be written, the system shall print a clear error message and exit with a non-zero exit code.
 - FR41: An error frame shall be a black frame of the uniform size (FR38) with a white X across it, the text "Invalid plane: row N" and the reason, so the failed row and its cause are visible in the video.
-- FR43: After a run, the demo shall print the volume's size, type and load time, the average projection time per plane (and fps), and the total time to write the video.
+- FR43: After a run, the program shall print the volume's size, type and load time, the average projection time per plane (and fps), and the total time to write the video.
 
 ## 3. Non-Functional Requirements
 
@@ -102,7 +102,7 @@ Frame - a Single projection, written as one frame of the output video.
 
 ## 4. Design Decisions
 
-Each decision resolves an ambiguity in the assignment or a problem in the given algorithm.
+Each decision resolves an ambiguity in the problem specification or a problem in the original algorithm ([ALGORITHM.md](ALGORITHM.md) §2).
 
 ### DD1: Voxel index coordinates (FR6, FR10)
 - Decision: Plane points are in voxel index coordinates; `space directions` and `space origin` are ignored.
@@ -111,17 +111,17 @@ Each decision resolves an ambiguity in the assignment or a problem in the given 
 
 ### DD2: Trapezoid point order (FR12)
 - Decision: The 4 points are read as (a1, b, a2, c).
-- Rationale: The assignment describes the trapezoid as two vectors a'→b and a''→c, and row 4 of the sample CSV is a valid trapezoid only in this order.
-- Note: This differs from the order (a1, a2, b, c) given in the Q&A.
+- Rationale: The problem specification describes the trapezoid by its two legs, a'→b and a''→c, so each leg's endpoints are listed together. Row 4 of the sample plane list is a valid trapezoid only in this order.
+- Alternative: (a1, a2, b, c), listing the top base first. Rejected: sample row 4 is invalid in this order.
 
 ### DD3: Invalid rows and planes produce an error frame (FR14, FR22, FR35, FR41)
-- Decision: Plane validation raises an exception. The demo catches it, reports the row number and the reason, and writes an error frame in place of the projection; all other rows are processed normally.
-- Rationale: Required by the lecturer's Q&A. Keeping one frame per row preserves the mapping between CSV row i and video frame i, and makes the error visible in the output instead of hiding it.
+- Decision: Plane validation raises an exception. The CSV reader records it with the row number and the reason, and the program writes an error frame in place of the projection; all other rows are processed normally.
+- Rationale: An invalid plane is an error and must be reported, but one bad row should not cost the whole video. Keeping one frame per row preserves the mapping between CSV row i and video frame i, and makes the error visible in the output instead of hiding it.
 - Alternatives: Stop the program (one bad row should not prevent the video), or skip the row silently (breaks the row↔frame mapping and hides the error). Both rejected.
 
 ### DD4: Plane validation (FR16 to FR21)
 - Decision: All geometric comparisons use the tolerance EPS. "Same plane" is checked as the distance of a2 from the plane through a1, b, c. Degenerate planes (collinear or coinciding points) are rejected. Trapezoid bases are not required to be parallel.
-- Rationale: Exact comparison of floating-point values is unreliable, and degenerate planes cause division by zero in the algorithm. Parallel bases are not required by the Q&A, and the algorithm works without them.
+- Rationale: Exact comparison of floating-point values is unreliable, and degenerate planes cause division by zero in the algorithm. Parallel bases are not required by the problem specification, and the algorithm works without them.
 
 ### DD5: A triangle is a trapezoid with a1 = a2 (FR24)
 - Decision: One algorithm handles both plane types.
@@ -129,11 +129,11 @@ Each decision resolves an ambiguity in the assignment or a problem in the given 
 
 ### DD6: The apex is sampled (FR27)
 - Decision: Row y uses p1(y) = a1 + y·v1, so row 0 is the apex.
-- Rationale: The given algorithm advances a1 and a2 before sampling, so the apex is never sampled.
+- Rationale: The original algorithm advances a1 and a2 before sampling, so the apex is never sampled.
 
 ### DD7: Rows of zero width (FR28)
 - Decision: If d12 < EPS, only one point is sampled.
-- Rationale: The given algorithm divides by d12, which is 0 at the apex.
+- Rationale: The original algorithm divides by d12, which is 0 at the apex.
 
 ### DD8: Output size (FR26)
 - Decision: H = floor(Dab) + 1, W = ceil(Dbc) + 1.
@@ -141,16 +141,16 @@ Each decision resolves an ambiguity in the assignment or a problem in the given 
 
 ### DD9: Nearest-neighbor sampling (FR30)
 - Decision: The value of the nearest voxel is used.
-- Rationale: Simplest and fastest; matches `M[p]` in the given algorithm.
+- Rationale: Simplest and fastest; matches `M[p]` in the original algorithm.
 - Alternative: Trilinear interpolation, which is smoother but slower. It is implemented as a second sampler (`TrilinearSampler`) through NFR12 and compared in the experiment: it is about 2.5 times slower, and the images differ by only 2.6 to 4.0 gray levels on average, so nearest-neighbor stays the default.
 
 ### DD10: E is indexed as E[y][x] (FR32)
 - Decision: Row first, then column.
-- Rationale: The given algorithm writes `E[x][y]`, but image and video libraries expect `[row][column]`.
+- Rationale: The original algorithm writes `E[x][y]`, but image and video libraries expect `[row][column]`.
 
 ### DD11: Global normalization, black background (FR3, FR36, FR37)
 - Decision: Values are scaled to 0 to 255 by the minimum and maximum of the whole volume. Background is always black.
-- Rationale: Per-frame normalization would make the same tissue change brightness between frames. Signed voxel types are supported because the reference MRI file is signed 16-bit, although the assignment specifies unsigned; with signed data Mmin can be negative, so 0 would otherwise map to gray.
+- Rationale: Per-frame normalization would make the same tissue change brightness between frames. Signed voxel types are supported because the reference MRI file is signed 16-bit, although the problem specification describes unsigned values; with signed data Mmin can be negative, so 0 would otherwise map to gray.
 
 ### DD12: Uniform frame size by padding (FR38)
 - Decision: Each frame is padded with black to the largest projection size, rounded up to even.

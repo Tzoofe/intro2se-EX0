@@ -2,7 +2,7 @@
 
 ## Goals
 
-1. Check that the demo produces correct, readable videos on real volumes of every supported voxel type.
+1. Check that the program produces correct, readable videos on real volumes of every supported voxel type.
 2. Measure projection speed against NFR1 (≥ 30 fps on a 500³ volume) and NFR2 (target ≥ 100 fps).
 3. Measure the effect of vectorizing the outer (row) loop.
 4. Compare nearest-neighbor sampling with trilinear interpolation: speed and image difference.
@@ -34,11 +34,11 @@ python -m experiments.make_gifs      # GIF previews for the README
 | Onion (uint8) | [onion_rotation.mp4](../experiments/output/onion_rotation.mp4) |
 | Biscuit cake (uint16) | [biscuit_cake_rotation.mp4](../experiments/output/biscuit_cake_rotation.mp4) |
 | Swiss roll (uint32) | [swiss_roll_rotation.mp4](../experiments/output/swiss_roll_rotation.mp4) |
-| MRHead + lecturer's sample [Ex0.csv](../Ex0.csv) | [MRHead_1_sample.mp4](../experiments/output/MRHead_1_sample.mp4) |
+| MRHead + the sample plane list [Ex0.csv](../Ex0.csv) | [MRHead_1_sample.mp4](../experiments/output/MRHead_1_sample.mp4) |
 
 - Every rotation video has 60 frames of 258×256. The plane turns smoothly from a sagittal slice of the head (frame 0) to an axial slice through the eyes (frame 30) and back.
 - The layered volumes make the slice geometry easy to check: the onion's rings change from a side view (half-ellipses) to concentric circles, and the Swiss roll's spiral turns into straight parallel layers.
-- The whole demo (loading, 60 projections, normalization and H.264 encoding) takes 0.3 to 0.4 s per volume.
+- A whole run (loading, 60 projections, normalization and H.264 encoding) takes 0.3 to 0.4 s per volume.
 - With the sample CSV, row 3 (not isosceles) becomes an error frame showing the row number and the reason, and the other three rows are projected. These planes are sized for a ~500³ volume, so most of each frame lies outside MRHead and is black.
 
 ### Speed
@@ -77,6 +77,6 @@ Same `Projector`, oblique 45° rectangle, both images converted to 8-bit with th
 - **NFR2 (target ≥ 100 fps) is met for triangles** (122 to 167 fps) but **not for full 500×500 rectangles** (81 to 85 fps). A rectangle fills its whole frame, so it samples about twice as many voxels as a triangle of the same size (250,000 per frame).
 - **Vectorizing the row loop helps when Python overhead dominates.** On the 256-voxel volumes, the per-row loop overhead is a large part of the time, and removing it gives 2 to 3×. On the 500³ triangles it gives 1.7 to 1.8×.
 - **On 500×500 rectangles the speed-up is 1.0×**, so the remaining time is not Python overhead. Profiling one rectangle (about 12.5 ms per frame) shows the time is split between computing the 250,000 sample points (~3 ms), rounding and bounds checks (~1.5 ms), and reading the voxels (~3.5 ms). Reading the voxels is a random-access gather from a 125 MB array, which is limited by memory access.
-- **Possible further speed-ups** (not done): reading voxels through a flat index with `np.take` measured about 12% faster in a quick test; a compiled inner loop (Numba, C, or Java as in the assignment's reference) or multithreading over rows would remove most of the remaining overhead.
+- **Possible further speed-ups** (not done): reading voxels through a flat index with `np.take` measured about 12% faster in a quick test; a compiled inner loop (Numba, C or Java) or multithreading over rows would remove most of the remaining overhead.
 - **Nearest-neighbor is the right default** (DD9). Trilinear interpolation is about 2.5 times slower, and the images differ by only 2.6 to 4.0 gray levels on average. The larger maximum differences (61 to 86) are rare and sit on sharp edges, such as the boundary between a bright layer and the background, where nearest takes one side and trilinear blends both: on MRHead and the onion, under 1% of pixels differ by more than 30 levels, and the image gradient at those pixels is 6 to 7 times the average. Both samplers run through the same `Projector` unchanged, which shows the Strategy design (NFR12) working in practice.
 - **Voxel spacing is ignored** (DD1). MRHead's third axis has 1.3 mm spacing against 1 mm for the others, so slices that include that axis look slightly squashed. This is expected under the voxel-index coordinate design.
