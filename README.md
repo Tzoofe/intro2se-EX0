@@ -107,7 +107,9 @@ Other data:
 │   ├── normalizer.py       # Normalizer: global 8-bit scaling, black background
 │   └── video_writer.py     # VideoWriter: padding, error frames, MP4
 ├── tests/                  # pytest suite
-└── docs/                   # SRS, algorithm, testing strategy
+├── experiments/            # rotation CSV generator, benchmark, output videos
+├── data/                   # NRRD volumes (not committed)
+└── docs/                   # SRS, algorithm, testing strategy, experiment
 ```
 
 Flow: `NrrdReader → Volume`, `PlaneCsvReader → [PlaneRow]`, then for each row `Projector(NearestSampler) → (E, mask) → Normalizer → VideoWriter`.
@@ -120,19 +122,24 @@ Design notes:
 
 ## Performance
 
-Projection step only, synthetic 500×500×500 `uint8` volume, average of 50 runs, MacBook Pro 14" M5:
+Projection step only, synthetic 500×500×500 `uint8` volume, average of 50 runs, MacBook Pro 14" M5 ([experiments/benchmark.py](experiments/benchmark.py)):
 
 | Plane | Output (H×W) | Row loop (`RowLoopProjector`) | Fully vectorized (`Projector`) |
 |---|---|---|---|
-| Triangle, axis-aligned | 559×501 | 105 fps | **169 fps** |
-| Triangle, oblique | 749×501 | 78 fps | **127 fps** |
-| Rectangle, axis-aligned | 500×500 | 81 fps | **83 fps** |
+| Triangle, axis-aligned | 559×501 | 94 fps | **166 fps** |
+| Triangle, oblique | 749×501 | 78 fps | **129 fps** |
+| Rectangle, axis-aligned | 500×500 | 83 fps | **84 fps** |
+| Rectangle, oblique 45° | 500×501 | 88 fps | **87 fps** |
 
+- The 30 fps requirement is met for every plane. The 100 fps target is met for triangles; full 500×500 rectangles reach about 85 fps, limited by memory access rather than Python overhead.
+- On the 256×256×130 dataset volumes, the vectorized projector runs at 520 to 790 fps.
 - An earlier version with plain Python loops for every pixel ran at ~28 fps, even on a smaller 238×237 image.
-- The rectangle samples a full 500×500 frame with large memory strides, so it is limited by memory access rather than by Python overhead, and vectorizing does not help.
+
+Full results, videos and discussion: [docs/EXPERIMENT.md](docs/EXPERIMENT.md).
 
 ## Documentation
 
 - [docs/SRS.md](docs/SRS.md): Software Requirements Specification (functional and non-functional requirements, design decisions).
 - `docs/ALGORITHM.md`: detailed algorithm *(TBD)*.
 - [docs/TESTING.md](docs/TESTING.md): testing strategy *(TBD)*.
+- [docs/EXPERIMENT.md](docs/EXPERIMENT.md): experiment, speed measurements and output videos.
